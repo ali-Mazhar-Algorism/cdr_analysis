@@ -208,6 +208,7 @@ def show_heat_map(df: pd.DataFrame) -> None:
         heatmap_data['lon'] = map_data['Longitude'].astype(float)
         heatmap_data['Call Type'] = map_data['Call Type'].astype(str)
         heatmap_data['Date & Time'] = pd.to_datetime(map_data['Date & Time'])
+        heatmap_data['date_time_str'] = heatmap_data['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
         
         # Define the HeatmapLayer
         layer = pdk.Layer(
@@ -233,7 +234,7 @@ def show_heat_map(df: pd.DataFrame) -> None:
             initial_view_state=view_state,
             tooltip={
                 "html": "<b>Call Type:</b> {Call Type}<br>"
-                        "<b>Date & Time:</b> {Date & Time}<br>"
+                        "<b>Date & Time:</b> {date_time_str}<br>"
                         "<b>Latitude:</b> {lat}<br>"
                         "<b>Longitude:</b> {lon}"
             }
@@ -248,6 +249,7 @@ def show_time_bound_map(df: pd.DataFrame) -> None:
     st.info("INFO: Select the call types from the dropdown to display on the map.")
     selected_types = st.multiselect('Select Call Types:', unique_call_types, default="Outgoing", key='time_bound_map') 
     map_data = df[df['Call Type'].isin(selected_types)]
+    map_data['date_time_str'] = map_data['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
     
      # Ensure 'Date & Time' column is in datetime format
     map_data['Date & Time'] = pd.to_datetime(map_data['Date & Time'])
@@ -308,7 +310,7 @@ def show_time_bound_map(df: pd.DataFrame) -> None:
         initial_view_state=view_state,
         tooltip={
             "html": "<b>Call Type:</b> {Call Type}<br>"
-                    "<b>Date & Time:</b> {Date & Time}<br>"
+                    "<b>Date & Time:</b> {date_time_str}<br>"
                     "<b>Latitude:</b> {lat}<br>"
                     "<b>Longitude:</b> {lon}"
         }
@@ -349,6 +351,7 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         st.error("The dataframe is missing required columns: 'Date & Time', 'Latitude', or 'Longitude'.")
         return
 
+    df['date_time_str'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
     # Ensure the 'Date & Time' column is in datetime format
     df.loc[:, 'Date & Time'] = pd.to_datetime(df['Date & Time'], errors='coerce')
     df = df.dropna(subset=['Date & Time'])  # Drop rows where 'Date & Time' is NaT
@@ -399,13 +402,12 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         pitch=50,
     )
 
-    df['Date & Time'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')  # Convert to string format
     # Render the line tracking chart
     r = pdk.Deck(
         layers=[scatterplot, line_layer],
         initial_view_state=view_state,
         tooltip={
-            "html": "<b>Date & Time:</b> {Date & Time}<br>"
+            "html": "<b>Date & Time:</b> {date_time_str}<br>"
                     "<b>Latitude:</b> {Latitude}<br>"
                     "<b>Longitude:</b> {Longitude}"
         }

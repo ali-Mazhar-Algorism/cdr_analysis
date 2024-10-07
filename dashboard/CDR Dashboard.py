@@ -42,11 +42,11 @@ if not st.session_state['file_uploaded']:
 
 if st.session_state['file_uploaded']:
     # Display the title
-    st.title("CDR Dashboard :globe_with_meridians:")
     
     display_dataset_highlights(st.session_state['df'])
     
     # Create tabs for each map
+    st.title("CDR Dashboard: maps")
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Geolocation Map", "Density Map", "Heat Map", "Time Bound Map", "Location Tracking"])
     
     # Geolocation Map tab
