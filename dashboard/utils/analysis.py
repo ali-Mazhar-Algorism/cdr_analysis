@@ -231,3 +231,119 @@ def display_b_party_analysis(df: pd.DataFrame) -> None:
             title="Call Frequency for Known B-Parties"
         )
         st.altair_chart(b_party_stats_chart, use_container_width=True)
+        
+def display_dataset_highlights(df: pd.DataFrame):
+    """
+    Display important highlights from the dataset including:
+    - Last known location
+    - A-Party number
+    - Most called B-Party
+    - Longest Call B-Party
+    - CDR start and end date-time
+    - IMEI(s) used, IMSI(s) used
+    - Important International numbers in B-Party
+    - Afg numbers in B-Party
+    - Total GSM activity, Internet usage, etc.
+    """
+    
+       # Basic processing similar to your initial version (same as before)
+    # 1. Last Known Location
+    last_known_location = df['Address'].dropna().iloc[-1] if 'Address' in df.columns else 'N/A'
+    
+    # 2. A-Party number
+    a_party_number = df['A-Party'].dropna().unique().tolist() if 'A-Party' in df.columns else 'N/A'
+    
+    # 3. Most called B-Party
+    most_called_b_party = df['B-Party'].mode()[0] if 'B-Party' in df.columns else 'N/A'
+    
+    # 4. Longest Call B-Party
+    longest_call_b_party = df.loc[df['Duration'].idxmax()]['B-Party'] if 'Duration' in df.columns and 'B-Party' in df.columns else 'N/A'
+    
+    # 5. CDR Start and End Date-Time
+    if 'Date & Time' in df.columns:
+        df['Date & Time'] = pd.to_datetime(df['Date & Time'])
+        cdr_start = df['Date & Time'].min()
+        cdr_end = df['Date & Time'].max()
+    else:
+        cdr_start, cdr_end = 'N/A', 'N/A'
+    
+    # Display the highlights using a combination of tables and metrics
+    st.title("CDR Dataset Highlights")
+    
+    # Key metrics section
+    st.header("Key Metrics")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Last Known Location", last_known_location)
+    col2.metric("Most Called B-Party", most_called_b_party)
+    col3.metric("Longest Call B-Party", longest_call_b_party)
+    
+    # A-Party and B-Party details table
+    st.subheader("A-Party and B-Party Information")
+    party_info = {
+        "A-Party Numbers": [a_party_number],
+        "Most Called B-Party": [most_called_b_party],
+        "Longest Call B-Party": [longest_call_b_party]
+    }
+    st.table(pd.DataFrame(party_info))
+    
+    # IMEI and IMSI table
+    st.subheader("IMEI and IMSI Usage")
+    imei_used = df['IMEI'].unique().tolist() if 'IMEI' in df.columns else 'N/A'
+    imsi_used = df['IMSI'].unique().tolist() if 'IMSI' in df.columns else 'N/A'
+    
+    imei_imsi_info = {
+        "IMEI(s) Used": [imei_used],
+        "IMSI(s) Used": [imsi_used]
+    }
+    st.table(pd.DataFrame(imei_imsi_info))
+    
+    # CDR Date Range
+    st.subheader("CDR Date Range")
+    st.write(f"CDR Start: **{cdr_start}**, CDR End: **{cdr_end}**")
+    
+    # International and Afg Numbers in B-Party
+    st.subheader("International and Afg Numbers in B-Party")
+    international_numbers = df[df['B-Party'].str.startswith('+')]['B-Party'].unique().tolist() if 'B-Party' in df.columns else 'N/A'
+    afg_numbers = df[df['B-Party'].str.startswith('93')]['B-Party'].unique().tolist() if 'B-Party' in df.columns else 'N/A'
+    
+    st.write(f"International Numbers: **{international_numbers}**")
+    st.write(f"Afg Numbers: **{afg_numbers}**")
+    
+    # GSM Activity
+    st.subheader("GSM Activity")
+    total_gsm_activity = len(df)
+    outgoing_calls_sms = len(df[df['Call Type'] == 'Outgoing']) if 'Call Type' in df.columns else 'N/A'
+    incoming_calls_sms = len(df[df['Call Type'] == 'InComing']) if 'Call Type' in df.columns else 'N/A'
+    
+    st.write(f"Total GSM Activity (Calls/SMS): **{total_gsm_activity}**")
+    st.write(f"Outgoing Calls/SMS: **{outgoing_calls_sms}**, Incoming Calls/SMS: **{incoming_calls_sms}**")
+    
+    # Internet and Other usage
+    st.subheader("Internet and Other Usage")
+    internet_usage = len(df[df['Service'] == 'Internet']) if 'Service' in df.columns else 'N/A'
+    other_usage = len(df[df['Service'] == 'Other']) if 'Service' in df.columns else 'N/A'
+    
+    st.write(f"Internet Usage: **{internet_usage}**")
+    st.write(f"Other Usage: **{other_usage}**")
+    
+    # Missing Dates
+    if 'Date & Time' in df.columns:
+        date_range = pd.date_range(cdr_start, cdr_end)
+        missing_dates = date_range.difference(df['Date & Time'].dt.date)
+        st.write(f"Missing Dates: **{missing_dates}**")
+    
+    # Activity by Time of Day
+    st.subheader("Day-time Activity (Calls by Time of Day)")
+    if 'Hour' not in df.columns:
+        df['Hour'] = df['Date & Time'].dt.hour
+    day_time_activity = df.groupby(df['Hour'].apply(categorize_time)).size().to_dict()
+    st.write(f"Day-time Activity: **{day_time_activity}**")
+
+# Utility function to categorize time of day
+def categorize_time(hour):
+    if 6 <= hour < 12:
+        return 'Morning (06:00-12:00)'
+    elif 12 <= hour < 18:
+        return 'Afternoon (12:00-18:00)'
+    else:
+        return 'Evening/Night (18:00-06:00)'
