@@ -351,10 +351,10 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         st.error("The dataframe is missing required columns: 'Date & Time', 'Latitude', or 'Longitude'.")
         return
 
+    # Ensure 'Date & Time' column is in datetime format
     df['date_time_str'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    # Ensure the 'Date & Time' column is in datetime format
     df.loc[:, 'Date & Time'] = pd.to_datetime(df['Date & Time'], errors='coerce')
-    df = df.dropna(subset=['Date & Time'])  # Drop rows where 'Date & Time' is NaT
+    df = df.dropna(subset=['Date & Time'])
 
     # Check for valid Latitude and Longitude data
     df.loc[:, 'Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
@@ -362,23 +362,25 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
     df = df.dropna(subset=['Latitude', 'Longitude'])
 
     # Convert 'Date & Time' to string for the tooltip
-    df.loc[:, 'Date & Time'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')  # Convert to string format
+    df.loc[:, 'Date & Time'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
     # Create the start and end positions for each movement
-    df['start'] = df[['Longitude', 'Latitude']].shift(1).apply(list, axis=1)  # Previous location as list [Longitude, Latitude]
-    df = df.dropna()  # Drop rows where 'start' is NaN
+    df['start'] = df[['Longitude', 'Latitude']].shift(1).apply(list, axis=1)
+
+    # Drop the first row where 'start' is NaN to skip the initial long line segment
+    df = df.dropna().iloc[1:]  # Dropping the first valid row with a 'start' value
 
     # Normalize time for color gradient
     df['time_norm'] = (df['Date & Time'].astype('datetime64[ns]') - df['Date & Time'].astype('datetime64[ns]').min()) / \
                       (df['Date & Time'].astype('datetime64[ns]').max() - df['Date & Time'].astype('datetime64[ns]').min())
-    df['color'] = df['time_norm'].apply(lambda x: [255 * (1 - x), 128 * x, 255 * x, 200])  # RGBA gradient based on time
+    df['color'] = df['time_norm'].apply(lambda x: [255 * (1 - x), 128 * x, 255 * x, 200])
 
-    # Define the line layer and scatterplot layer
+    # Define the layers for the plot
     scatterplot = pdk.Layer(
         "ScatterplotLayer",
         data=df,
         get_position=["Longitude", "Latitude"],
-        get_fill_color=[255, 140, 0],  # Static color for points
+        get_fill_color=[255, 140, 0],
         get_radius=100,
         pickable=True,
     )
@@ -386,15 +388,15 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
     line_layer = pdk.Layer(
         "LineLayer",
         data=df,
-        get_source_position="start",  # The previous point as a list
-        get_target_position=["Longitude", "Latitude"],  # The current point
-        get_color="color",  # Use the color calculated based on time
+        get_source_position="start",
+        get_target_position=["Longitude", "Latitude"],
+        get_color="color",
         get_width=5,
         auto_highlight=True,
         pickable=True,
     )
 
-    # Set the initial view state (zoom into the main area of activity)
+    # Set the initial view state
     view_state = pdk.ViewState(
         latitude=df['Latitude'].mean(),
         longitude=df['Longitude'].mean(),
@@ -402,7 +404,7 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         pitch=50,
     )
 
-    # Render the line tracking chart
+    # Render the chart
     r = pdk.Deck(
         layers=[scatterplot, line_layer],
         initial_view_state=view_state,
@@ -413,3 +415,4 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         }
     )
     st.pydeck_chart(r)
+
