@@ -1,12 +1,18 @@
 import pandas as pd
 
+# Mapping column names for renaming
 COLUMN_MAP = {
-    'CALL_TYPE': 'Call_Type',
-    'call_type': 'Call_Type',
-    'call': 'Call_Type',
+    'CALL_TYPE': 'Call Type',
+    'call_type': 'Call Type',
+    'call': 'Call Type',
     'MSISDN': 'A-Party',
     'BNUMBER': 'B-Party',
-    'STRT_TM': 'Start_Time',
+    'STRT_TM': 'Date & Time',
+    'MINS': 'Minutes',
+    'SECS': 'Seconds',
+    'SITE_ADDRESS': 'Address',
+    'LAT': 'Latitude',
+    'LNG': 'Longitude',
     # Add other mappings as needed
 }
 
@@ -23,7 +29,6 @@ def find_table_start(df: pd.DataFrame) -> pd.DataFrame:
             df = df.drop(range(i + 1))  # Drop the rows above the header
             break
     return df
-
 
 def prune_columns(raw_data: pd.DataFrame, threshold: float = 0.25):
     columns_to_remove = raw_data.filter(regex=r'^Unnamed').columns
@@ -101,3 +106,153 @@ def parse_site_info(info_string):
     }
     
     return parsed_info
+
+# Type-specific preprocessing functions
+
+def preprocess_type1(df):
+    # Extract the A-Party number from the first line
+    a_party_number = df.iloc[0]['MSISDN'] if 'MSISDN' in df.columns else None
+    # Rename columns
+    df = df.rename(columns={
+        'CALL_TYPE': 'Call Type',
+        'MSISDN': 'A-Party',
+        'BNUMBER': 'B-Party',
+        'STRT_TM': 'Date & Time',
+        'MINS': 'Minutes',
+        'SECS': 'Seconds',
+        'SITE_ADDRESS': 'Address',
+        'LAT': 'Latitude',
+        'LNG': 'Longitude'
+    })
+    
+    # If A-Party is missing, fill it with the value extracted from the first row
+    if 'A-Party' in df.columns and df['A-Party'].isna().all():
+        df['A-Party'] = a_party_number
+    
+    # Calculate duration in seconds
+    df['Duration'] = pd.to_numeric(df['Minutes']) * 60 + pd.to_numeric(df['Seconds'])
+    
+    # Standardize the 'Call Type' values
+    df['Call Type'] = df['Call Type'].replace({
+        'Call - Incoming': 'InComing',
+        'Call - Outgoing': 'OutGoing',
+        'SMS - Incoming': 'InComing SMS',
+        'SMS - Outgoing': 'OutGoing SMS'
+    })
+    
+    df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
+    df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
+    # Return the standardized dataframe with relevant columns
+    
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+
+def preprocess_type2(df):
+    df = df.filter(regex='^(?!.*Unnamed)')
+    df = df.rename(columns={
+        'Call Type': 'Call Type',
+        'A-Party': 'A-Party',
+        'B-Party': 'B-Party',
+        'Date & Time': 'Date & Time',
+        'Duration': 'Duration',
+        'Site': 'Address'
+    })
+
+    df['Call Type'] = df['Call Type'].replace({
+        'Incoming': 'InComing',
+        'Outgoing': 'OutGoing',
+        'Incoming SMS': 'InComing SMS',
+        'Outgoing SMS': 'OutGoing SMS'
+    })
+    
+    df[['Address', 'Latitude', 'Longitude', 'Some Key']] = df['Address'].str.split('|', expand=True)
+    df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
+    df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
+
+    print(df.head(3))
+    
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+
+def preprocess_type3(df):
+    df = df.rename(columns={
+        'CallType': 'Call Type',
+        'Aparty': 'A-Party',
+        'BParty': 'B-Party',
+        'Datetime': 'Date & Time',
+        'Duration': 'Duration',
+        'SiteLocation': 'Address'
+    })
+    
+    df[['Address', 'Latitude', 'Longitude', 'Some Code']] = df['Address'].str.split('|', expand=True)
+    df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
+    df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
+    
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+
+def preprocess_type4(df):
+    df = df.rename(columns={
+        'A Number': 'A-Party',
+        'B Number': 'B-Party',
+        'Direction': 'Call Type',
+        'Start Time': 'Date & Time',
+        'Location': 'Address',
+        'Latitude': 'Latitude',
+        'Longitude': 'Longitude'
+    })
+    
+    df['Duration'] = pd.to_datetime(df['End Time']) - pd.to_datetime(df['Date & Time'])
+    df['Duration'] = df['Duration'].dt.total_seconds()
+    
+        # Standardize the 'Call Type' values
+    df['Call Type'] = df['Call Type'].replace({
+        'INCOMING': 'InComing',
+        'OUTGOING': 'OutGoing',
+    })
+    
+    return df[['A-Party', 'B-Party', 'Date & Time', 'Call Type', 'Duration', 'Address', 'Latitude', 'Longitude']]
+
+def preprocess_type5(df):
+    df = df.rename(columns={
+        'Call Type': 'Call Type',
+        'A-Party': 'A-Party',
+        'B-Party': 'B-Party',
+        'Date & Time': 'Date & Time',
+        'Duration': 'Duration',
+        'Address': 'Address',
+        'Latitude': 'Latitude',
+        'Longitude': 'Longitude'
+    })
+    
+    df['Call Type'] = df['Call Type'].replace({
+        'Incoming': 'InComing',
+        'Outgoing': 'OutGoing',
+        'Incoming SMS': 'InComing SMS',
+        'Outgoing SMS': 'OutGoing SMS'
+    })
+    
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+
+# Main preprocessing function
+
+def preprocess_file(df):
+    if 'CALL_TYPE' in df.columns:
+        print("type1")
+        # 3134312323_1040470
+        return preprocess_type1(df)
+    elif 'Call Type' in df.columns and 'Longitude and Latitude' in df.columns:
+        print("type2")
+        # 923214104372
+        return preprocess_type2(df)
+    elif 'CallType' in df.columns:  
+        print("type3")
+        # 923054686127
+        return preprocess_type3(df)
+    elif 'A Number' in df.columns:
+        print("type4")
+        # 923244503235
+        return preprocess_type4(df)
+    elif 'A-Party' in df.columns and 'Call Type' in df.columns:
+        print("type5")
+        return preprocess_type5(df)
+    else:
+        print("Unknown file type.")
+        return pd.DataFrame()  # Return empty DataFrame for unknown types

@@ -92,8 +92,8 @@ def get_map_data(df: pd.DataFrame, selected_types) -> pd.DataFrame:
     color_data = map_data['Call Type'].apply(
         lambda x: [255, 0, 0, 255] if x == 'InComing' else  # Red
                 ([0, 0, 255, 255] if x == 'Outgoing' else  # Blue
-                ([0, 128, 0, 255] if x == 'Incoming SMS' else  # Green
-                    ([255, 165, 0, 255] if x == 'Outgoing SMS' else [255, 255, 255, 160])))  # Orange
+                ([0, 128, 0, 255] if x == 'InComing SMS' else  # Green
+                    ([255, 165, 0, 255] if x == 'OutGoing SMS' else [255, 255, 255, 160])))  # Orange
     ).tolist()
     
     map_data['color'] = color_data
@@ -110,7 +110,7 @@ def show_map(df: pd.DataFrame) -> None:
         # Allow users to select call types
         unique_call_types = df['Call Type'].unique().tolist()
         st.info("INFO: Select the call types from the dropdown to display on the map.")
-        selected_types = st.multiselect('Select Call Types:', unique_call_types, default="Outgoing", key="call_map") 
+        selected_types = st.multiselect('Select Call Types:', unique_call_types, default="OutGoing", key="call_map") 
         
         if selected_types:
             map_data = get_map_data(df, selected_types)
@@ -156,7 +156,7 @@ def show_density_map(df: pd.DataFrame) -> None:
     # Get the address density data
     unique_call_types = df['Call Type'].unique().tolist()
     st.info("INFO: Select the call types from the dropdown to display on the map.")
-    selected_types = st.multiselect('Select Call Types:', unique_call_types, default="Outgoing", key='density_map') 
+    selected_types = st.multiselect('Select Call Types:', unique_call_types, default="OutGoing", key='density_map') 
     
     top_ten_addresses = get_address_density(df, selected_types)
     
@@ -197,7 +197,7 @@ def show_heat_map(df: pd.DataFrame) -> None:
     # Filter data based on selected call types
     unique_call_types = df['Call Type'].unique().tolist()
     st.info("INFO: Select the call types from the dropdown to display on the map.")
-    selected_types = st.multiselect('Select Call Types:', unique_call_types, default="Outgoing", key='heat_map') 
+    selected_types = st.multiselect('Select Call Types:', unique_call_types, default="OutGoing", key='heat_map') 
     map_data = df[df['Call Type'].isin(selected_types)]
     
     # Ensure the data contains latitude and longitude
@@ -247,7 +247,7 @@ def show_time_bound_map(df: pd.DataFrame) -> None:
     # Filter data based on selected call types
     unique_call_types = df['Call Type'].unique().tolist()
     st.info("INFO: Select the call types from the dropdown to display on the map.")
-    selected_types = st.multiselect('Select Call Types:', unique_call_types, default="Outgoing", key='time_bound_map') 
+    selected_types = st.multiselect('Select Call Types:', unique_call_types, default="OutGoing", key='time_bound_map') 
     map_data = df[df['Call Type'].isin(selected_types)]
     map_data['date_time_str'] = map_data['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
     

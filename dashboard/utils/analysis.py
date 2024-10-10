@@ -70,7 +70,7 @@ def plot_longest_calls(data: pd.DataFrame):
     st.write("Each bar represents a call with a duration in minutes. The x-axis shows the B-Party number and the y-axis shows the duration of the call. Hover over the bar to see the details.")
     
     # Filter data for call types "InComing" and "Outgoing"
-    filtered_data = data[data['Call Type'].isin(['InComing', 'Outgoing'])]
+    filtered_data = data[data['Call Type'].isin(['InComing', 'OutGoing'])]
     
     # Remove rows where B-Party number has length less than 9
     filtered_data = filtered_data[filtered_data['B-Party'].apply(lambda x: len(str(x)) >= 9)]
@@ -165,6 +165,7 @@ def show_b_party_analysis(data: pd.DataFrame):
 
 
 
+
 def analyze_b_party(df: pd.DataFrame) -> pd.DataFrame:
     """
     This function analyzes the 'B-Party' column for known phone numbers and provides
@@ -176,23 +177,35 @@ def analyze_b_party(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
     - pd.DataFrame: DataFrame containing statistics for each known phone number.
     """
-    # Filter out rows where 'B-Party' is empty or unknown (assuming 'Unknown' or empty values mean unknown)
+    # Filter out rows where 'B-Party' is empty or unknown, and exclude overly large B-Party numbers
     df_filtered = df[df['B-Party'].notna() & (df['B-Party'] != 'Unknown')]
+    df_filtered = df_filtered[df_filtered['B-Party'].apply(lambda x: len(str(x)) <= 13)]
     
+    # Ensure 'Latitude' and 'Longitude' are numeric
+    df_filtered['Latitude'] = pd.to_numeric(df_filtered['Latitude'], errors='coerce')
+    df_filtered['Longitude'] = pd.to_numeric(df_filtered['Longitude'], errors='coerce')
+    # Drop rows where 'Duration' is NaN as they can't be used in aggregation
+    df_filtered = df_filtered.dropna(subset=['Duration'])
+
     # Group the data by 'B-Party' to calculate the desired metrics
     b_party_stats = df_filtered.groupby('B-Party').agg(
-        Call_Frequency=('B-Party', 'size'),  # Count the frequency of each 'B-Party'
-        Avg_Call_Duration=('Duration', 'mean'),  # Calculate the average duration of calls
-        Total_Call_Duration=('Duration', 'sum'),  # Calculate the total duration of calls
-        Locations=('Address', lambda x: ', '.join(x.dropna().astype(str).unique())),  # Concatenate unique locations (addresses)
-        Latitude=('Latitude', lambda x: x.mean()),  # Get the average latitude (for central location)
-        Longitude=('Longitude', lambda x: x.mean())  # Get the average longitude (for central location)
+        Call_Frequency=('B-Party', 'size'),  
+        Avg_Call_Duration=('Duration', 'mean'),  
+        Total_Call_Duration=('Duration', 'sum'),  
+        Locations=('Address', lambda x: ', '.join(x.dropna().astype(str).unique())),  
+        Latitude=('Latitude', 'mean'),  
+        Longitude=('Longitude', 'mean')  
     ).reset_index()
 
     # Rename columns for clarity
-    b_party_stats.columns = ['B-Party', 'Call Frequency', 'Avg Call Duration (s)', 'Total Call Duration (s)', 'Call Locations', 'Avg Latitude', 'Avg Longitude']
+    b_party_stats.columns = [
+        'B-Party', 'Call Frequency', 'Avg Call Duration (s)', 
+        'Total Call Duration (s)', 'Call Locations', 'Avg Latitude', 'Avg Longitude'
+    ]
     
     return b_party_stats
+
+
 
 
 
@@ -312,7 +325,7 @@ def display_dataset_highlights(df: pd.DataFrame):
     # GSM Activity
     st.subheader("GSM Activity")
     total_gsm_activity = len(df)
-    outgoing_calls_sms = len(df[df['Call Type'] == 'Outgoing']) if 'Call Type' in df.columns else 'N/A'
+    outgoing_calls_sms = len(df[df['Call Type'] == 'OutGoing']) if 'Call Type' in df.columns else 'N/A'
     incoming_calls_sms = len(df[df['Call Type'] == 'InComing']) if 'Call Type' in df.columns else 'N/A'
     
     st.write(f"Total GSM Activity (Calls/SMS): **{total_gsm_activity}**")

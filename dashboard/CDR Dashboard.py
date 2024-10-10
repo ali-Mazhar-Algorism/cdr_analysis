@@ -18,10 +18,12 @@ if not st.session_state['file_uploaded']:
     
     if uploaded_file is not None:
         # Load the data
+        df = None
         df = load_data(uploaded_file)
         
         # Handle non-relevant rows
         df = find_table_start(df)
+        df = preprocess_file(df)
         
         # Standardize column names
         df = standardize_columns(df)
