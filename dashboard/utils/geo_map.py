@@ -346,73 +346,105 @@ def top_locations(data: pd.DataFrame):
 
 
 def show_line_tracking_chart(df: pd.DataFrame) -> None:
-    # Filter data to ensure it contains 'Date & Time', 'Latitude', and 'Longitude'
-    if 'Date & Time' not in df.columns or 'Latitude' not in df.columns or 'Longitude' not in df.columns:
-        st.error("The dataframe is missing required columns: 'Date & Time', 'Latitude', or 'Longitude'.")
-        return
+    """
+    Display a line tracking chart for the given dataframe with latitude, longitude, and date-time data.
+    """
+    if not df.empty:
+        # Filter data to ensure it contains 'Date & Time', 'Latitude', and 'Longitude'
+        if 'Date & Time' not in df.columns or 'Latitude' not in df.columns or 'Longitude' not in df.columns:
+            st.error("The dataframe is missing required columns: 'Date & Time', 'Latitude', or 'Longitude'.")
+            return
 
-    # Ensure 'Date & Time' column is in datetime format
-    df['date_time_str'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    df.loc[:, 'Date & Time'] = pd.to_datetime(df['Date & Time'], errors='coerce')
-    df = df.dropna(subset=['Date & Time'])
+        # Create a new dataframe to avoid modifying the original one
+        map_data = pd.DataFrame()
+        map_data['lat'] = df['Latitude'].astype(float)
+        map_data['lon'] = df['Longitude'].astype(float)
+        map_data['B-Party'] = df['B-Party'].astype(str)
+        map_data['Call Type'] = df['Call Type'].astype(str)
+        map_data['Date & Time'] = pd.to_datetime(df['Date & Time'])
+        map_data['Duration'] = df['Duration']
+        map_data['Address'] = df['Address'].astype(str)
 
-    # Check for valid Latitude and Longitude data
-    df.loc[:, 'Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
-    df.loc[:, 'Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
-    df = df.dropna(subset=['Latitude', 'Longitude'])
+        # Set default start and end dates based on the data range
+        min_date = map_data['Date & Time'].min().date()
+        max_date = map_data['Date & Time'].max().date()
 
-    # Convert 'Date & Time' to string for the tooltip
-    df.loc[:, 'Date & Time'] = df['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        # Date filter inputs
+        start_date = st.date_input('Select start date', min_date, min_value=min_date, max_value=max_date, key="LineMapDateStart")
+        end_date = st.date_input('Select end date', max_date, min_value=min_date, max_value=max_date, key="LineMapDateEnd")
 
-    # Create the start and end positions for each movement
-    df['start'] = df[['Longitude', 'Latitude']].shift(1).apply(list, axis=1)
+        if start_date > end_date:
+            st.error("Start date cannot be after end date.")
+            return
 
-    # Drop the first row where 'start' is NaN to skip the initial long line segment
-    df = df.dropna().iloc[1:]  # Dropping the first valid row with a 'start' value
+        # Filter dataframe based on selected date range
+        df_filtered = map_data[(map_data['Date & Time'].dt.date >= start_date) & (map_data['Date & Time'].dt.date <= end_date)]
 
-    # Normalize time for color gradient
-    df['time_norm'] = (df['Date & Time'].astype('datetime64[ns]') - df['Date & Time'].astype('datetime64[ns]').min()) / \
-                      (df['Date & Time'].astype('datetime64[ns]').max() - df['Date & Time'].astype('datetime64[ns]').min())
-    df['color'] = df['time_norm'].apply(lambda x: [255 * (1 - x), 128 * x, 255 * x, 200])
+        # Check if the filtered data is empty
+        if df_filtered.empty:
+            st.warning("No data available for the selected date range.")
+            return
 
-    # Define the layers for the plot
-    scatterplot = pdk.Layer(
-        "ScatterplotLayer",
-        data=df,
-        get_position=["Longitude", "Latitude"],
-        get_fill_color=[255, 140, 0],
-        get_radius=100,
-        pickable=True,
-    )
+        # Remove rows with infinite or NaN values
+        df_filtered = df_filtered[(df_filtered['lat'].notna()) & (df_filtered['lon'].notna())]
+        df_filtered = df_filtered[(df_filtered['lat'] != float('inf')) & (df_filtered['lon'] != float('inf'))]
+        
+        # Create the start and end positions for each movement
+        df_filtered['start'] = df_filtered[['lon', 'lat']].shift(1).apply(list, axis=1)
 
-    line_layer = pdk.Layer(
-        "LineLayer",
-        data=df,
-        get_source_position="start",
-        get_target_position=["Longitude", "Latitude"],
-        get_color="color",
-        get_width=5,
-        auto_highlight=True,
-        pickable=True,
-    )
+        # Drop the first row where 'start' is NaN to skip the initial long line segment
+        df_filtered = df_filtered.dropna().iloc[1:]
 
-    # Set the initial view state
-    view_state = pdk.ViewState(
-        latitude=df['Latitude'].mean(),
-        longitude=df['Longitude'].mean(),
-        zoom=11,
-        pitch=50,
-    )
+        df_filtered['date_time_str'] = df_filtered['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
-    # Render the chart
-    r = pdk.Deck(
-        layers=[scatterplot, line_layer],
-        initial_view_state=view_state,
-        tooltip={
-            "html": "<b>Date & Time:</b> {date_time_str}<br>"
-                    "<b>Latitude:</b> {Latitude}<br>"
-                    "<b>Longitude:</b> {Longitude}"
-        }
-    )
-    st.pydeck_chart(r)
+
+        # Define the layers for the plot
+        scatterplot = pdk.Layer(
+            "ScatterplotLayer",
+            data=df_filtered,
+            get_position=["lon", "lat"],
+            get_fill_color=[255, 140, 0],
+            get_radius=100,
+            pickable=True,
+        )
+
+        arc_layer = pdk.Layer(
+            "ArcLayer",
+            data=df_filtered,
+            get_source_position="start",  # The previous point as a list
+            get_target_position=["lon", "lat"],  # The current point
+            get_source_color=[0, 255, 0, 160],  # Color for source (start) point
+            get_target_color=[255, 0, 0, 160],  # Color for target (end) point
+            get_width=4,  # Adjust the width of the arc
+            pickable=True,
+            auto_highlight=True,
+        )
+
+        # Set the initial view state
+        view_state = pdk.ViewState(
+            latitude=df_filtered['lat'].mean(),
+            longitude=df_filtered['lon'].mean(),
+            zoom=11,
+            pitch=50,
+        )
+
+        # Render the chart
+        r = pdk.Deck(
+            layers=[scatterplot, arc_layer],
+            initial_view_state=view_state,
+            tooltip={
+                "html": "<b>Date & Time:</b> {date_time_str}<br>"
+                        "<b>Latitude:</b> {lat}<br>"
+                        "<b>Longitude:</b> {lon}"
+            }
+        )
+        
+        try:
+            st.pydeck_chart(r)
+        except Exception as e:
+            print(f"Line map error {e}")
+            st.write("Refresh to load this map.")
+    else:
+        st.write("Loading Data")
+
 

@@ -85,8 +85,6 @@ if st.session_state['file_uploaded']:
     # elif page == "Analysis":
     st.title("Analysis :bar_chart:")
     plot_call_frequency_by_time(st.session_state['df'])
-    analyze_b_party(st.session_state['df'])
-    display_b_party_analysis(st.session_state['df'])
     plot_longest_calls(st.session_state['df'])
     show_b_party_analysis(st.session_state['df'])
     # top_locations(st.session_state['df'])

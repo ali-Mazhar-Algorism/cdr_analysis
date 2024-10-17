@@ -182,6 +182,13 @@ def preprocess_type3(df):
         'SiteLocation': 'Address'
     })
     
+    df['Call Type'] = df['Call Type'].replace({
+        'Incoming': 'InComing',
+        'Outgoing': 'OutGoing',
+        'Incoming SMS': 'InComing SMS',
+        'Outgoing SMS': 'OutGoing SMS'
+    })
+    
     df[['Address', 'Latitude', 'Longitude', 'Some Code']] = df['Address'].str.split('|', expand=True)
     df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
     df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
