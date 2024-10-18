@@ -4,7 +4,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
 import altair as alt
-from constants import day_freq_heading, phase_freq_heading, phase_freq_sub_heading, phase_freq_sub_info, calls_plot_heading, calls_plot_sub_heading, b_analysis_heading, b_analysis_sub_heading, no_data_warning, no_selected_type_warning, no_date_selected
+from .constants import day_freq_heading, phase_freq_heading, phase_freq_sub_heading, phase_freq_sub_info, calls_plot_heading, calls_plot_sub_heading, b_analysis_heading, b_analysis_sub_heading, no_data_warning, no_selected_type_warning, no_date_selected
 
 def categorize_time(hour):
     """Categorizes the given hour into a time of day."""
