@@ -25,7 +25,7 @@ def select_call_types(map_data: pd.DataFrame, default: str, key: str) -> list:
     return selected_types
 
 
-def select_date_range(data: pd.DataFrame, start_key: str, end_key: str):
+def select_date_range(data: pd.DataFrame, start_key: str, end_key: str, latest_only=False):
     """
     Displays date input fields for users to select a date range based on the provided data.
 
@@ -37,8 +37,12 @@ def select_date_range(data: pd.DataFrame, start_key: str, end_key: str):
     Returns:
     - tuple: A tuple containing the selected start and end dates.
     """
-    min_date = data["Date & Time"].min().date()
-    max_date = data["Date & Time"].max().date()
+    if latest_only:
+        max_date = data["Date & Time"].max().date()
+        min_date = max_date - pd.Timedelta(days=2)
+    else:
+        min_date = data["Date & Time"].min().date()
+        max_date = data["Date & Time"].max().date()
     start_date = st.date_input(
         "Select start date",
         min_date,
@@ -357,7 +361,7 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
     map_data["Address"] = df["Address"].astype(str)
 
     start_date, end_date = select_date_range(
-        map_data, start_key="LineMapDateStart", end_key="LineMapDateEnd"
+        map_data, start_key="LineMapDateStart", end_key="LineMapDateEnd", latest_only=True
     )
 
     if start_date > end_date:
