@@ -399,13 +399,13 @@ def display_b_party_analysis(df: pd.DataFrame) -> None:
         st.altair_chart(b_party_stats_chart, use_container_width=True)
 
 
-def display_card(title, value, width="100%", padding="15px", font_size="18px", font_weight="bold", title_font_size="16px", card_color="#d4e5ff"):
+def display_card(title, value, width="100%", padding="15px", font_size="18px", font_weight="bold", title_font_size="16px", card_color="#26292a"):
     """Displays a customizable card."""
     st.markdown(
         f"""
-        <div style="background-color:{card_color};padding:{padding};border-radius:8px;text-align:center;color:#004b8d;width:{width};box-shadow:0px 2px 5px rgba(0, 0, 0, 0.1);">
+        <div style="background-color:{card_color};padding:{padding};border-radius:8px;text-align:center;color:#c9c8c4;width:{width};box-shadow:0px 2px 5px rgba(0, 0, 0, 0.1);">
             <h3 style="margin:0;font-size:{title_font_size};">{title}</h3>
-            <p style="font-size:{font_size};font-weight:{font_weight};margin-top:5px">{value}</p>
+            <p style="font-size:{font_size};font-weight:{font_weight};margin-top:5px;color:#70b8ef">{value}</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -469,9 +469,9 @@ def display_dataset_highlights(df: pd.DataFrame):
     st.subheader("CDR Date Range")
     col1, col2 = st.columns(2)
     with col1:
-        display_card("Start Date", cdr_start, padding="15px", font_size="20px", card_color="#cfe2ff")
+        display_card("Start Date", cdr_start, padding="15px", font_size="20px")
     with col2:
-        display_card("End Date", cdr_end, padding="15px", font_size="20px", card_color="#cfe2ff")
+        display_card("End Date", cdr_end, padding="15px", font_size="20px")
 
     st.header("Key Metrics")
     col1, col2, col3, col4 = st.columns(4)
@@ -531,7 +531,7 @@ def display_dataset_highlights(df: pd.DataFrame):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        display_card("Total GSM Activity (Calls/SMS)", total_gsm_activity, width="100%", font_size="22px", padding="20px", card_color="#cfe2ff")
+        display_card("Total GSM Activity (Calls/SMS)", total_gsm_activity)
     with col2:
         display_card("Outgoing Calls/SMS", outgoing_calls_sms)
     with col3:
