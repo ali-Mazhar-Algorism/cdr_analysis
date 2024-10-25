@@ -37,22 +37,27 @@ def select_date_range(data: pd.DataFrame, start_key: str, end_key: str, latest_o
     Returns:
     - tuple: A tuple containing the selected start and end dates.
     """
+    
+    min_date = data["Date & Time"].min().date()
+    max_date = data["Date & Time"].max().date()
+    
+    end=max_date
+    
     if latest_only:
-        max_date = data["Date & Time"].max().date()
-        min_date = max_date - pd.Timedelta(days=2)
+        start = max_date - pd.Timedelta(days=2)
     else:
-        min_date = data["Date & Time"].min().date()
-        max_date = data["Date & Time"].max().date()
+        start=min_date
+    
     start_date = st.date_input(
         "Select start date",
-        min_date,
+        start,
         min_value=min_date,
         max_value=max_date,
         key=start_key,
     )
     end_date = st.date_input(
         "Select end date",
-        max_date,
+        end,
         min_value=min_date,
         max_value=max_date,
         key=end_key,
