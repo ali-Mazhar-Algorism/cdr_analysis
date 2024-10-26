@@ -42,7 +42,7 @@ cd dashboard
 Once inside the `dashboard` directory, run the Streamlit application:
 
 ```bash
-streamlit run "CDR Dashboard.py"
+streamlit run "cdr.py"
 ```
 
 ### 6. Access the Dashboard
