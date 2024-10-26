@@ -1,9 +1,16 @@
 import pandas as pd
 import streamlit as st
+import os
 
 @st.cache_data
 def load_data(filepath: str) -> pd.DataFrame:
-    data = pd.read_excel(filepath)
+    file_extension = os.path.splitext(filepath.name)[1]
+    
+    if file_extension == '.csv':
+        data = pd.read_csv(filepath)
+    else:
+        data = pd.read_excel(filepath)
+    
     st.session_state["raw_data"] = data
     return data
 
