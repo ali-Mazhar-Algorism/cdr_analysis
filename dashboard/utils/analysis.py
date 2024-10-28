@@ -536,3 +536,74 @@ def display_dataset_highlights(df: pd.DataFrame):
         display_card("Outgoing Calls/SMS", outgoing_calls_sms)
     with col3:
         display_card("Incoming Calls/SMS", incoming_calls_sms)
+
+
+def two_file_comparative_analysis(df1, df2):
+    st.title("Two File Comparative Analysis")
+
+    # Display highlights for both datasets side by side
+    col1, col2 = st.columns(2)
+    with col1:
+        st.header("Dataset 1 Highlights")
+        display_dataset_highlights(df1)
+    with col2:
+        st.header("Dataset 2 Highlights")
+        display_dataset_highlights(df2)
+
+    # 1. Check if any A-Party in df1 is in B-Party in df2 and vice versa
+    common_a_b_parties = df1[df1['A-Party'].isin(df2['B-Party'])]
+    common_b_a_parties = df2[df2['A-Party'].isin(df1['B-Party'])]
+
+    st.subheader("Connections between A-Party in one file and B-Party in the other")
+    if not common_a_b_parties.empty or not common_b_a_parties.empty:
+        st.write("Common A-Party in `df1` found in B-Party of `df2`:")
+        st.write(common_a_b_parties)
+        st.write("Common A-Party in `df2` found in B-Party of `df1`:")
+        st.write(common_b_a_parties)
+    else:
+        st.write("No A-Party numbers in one file were found as B-Party numbers in the other.")
+
+    # 2. Find common locations using both 'Location' and 'Latitude'/'Longitude' columns
+    if 'Location' in df1.columns and 'Location' in df2.columns:
+        common_locations_name = pd.merge(df1[['Location']], df2[['Location']], on='Location').drop_duplicates()
+        st.subheader("Common Locations by Name")
+        if not common_locations_name.empty:
+            st.write(common_locations_name)
+        else:
+            st.write("No common named locations found between the two files.")
+
+    common_locations_coords = pd.merge(df1[['Latitude', 'Longitude']], df2[['Latitude', 'Longitude']], 
+                                       on=['Latitude', 'Longitude']).drop_duplicates()
+    st.subheader("Common Locations by Coordinates (Latitude, Longitude)")
+    if not common_locations_coords.empty:
+        st.write("Common Locations (Latitude, Longitude):")
+        st.write(common_locations_coords)
+    else:
+        st.write("No common coordinates found between the two files.")
+
+    # 3. Find common IMEI and IMSI numbers if columns are available
+    if 'IMEI' in df1.columns and 'IMEI' in df2.columns:
+        common_imei = pd.merge(df1[['IMEI']], df2[['IMEI']], on='IMEI').drop_duplicates()
+        st.subheader("Common IMEI Numbers")
+        if not common_imei.empty:
+            st.write(common_imei)
+        else:
+            st.write("No common IMEI numbers found.")
+
+    if 'IMSI' in df1.columns and 'IMSI' in df2.columns:
+        common_imsi = pd.merge(df1[['IMSI']], df2[['IMSI']], on='IMSI').drop_duplicates()
+        st.subheader("Common IMSI Numbers")
+        if not common_imsi.empty:
+            st.write(common_imsi)
+        else:
+            st.write("No common IMSI numbers found.")
+
+    # 4. Find common B-Party numbers between df1 and df2
+    common_b_parties = pd.merge(df1[['B-Party']], df2[['B-Party']], on='B-Party').drop_duplicates()
+
+    st.subheader("Common B-Party Numbers")
+    if not common_b_parties.empty:
+        st.write("Common B-Party Numbers:")
+        st.write(common_b_parties)
+    else:
+        st.write("No common B-Party numbers found between the two files.")
