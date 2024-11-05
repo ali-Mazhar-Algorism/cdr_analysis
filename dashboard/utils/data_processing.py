@@ -144,7 +144,7 @@ def preprocess_type1(df):
     df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
     # Return the standardized dataframe with relevant columns
     
-    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'IMEI', 'Latitude', 'Longitude']]
 
 def preprocess_type2(df):
     df = df.filter(regex='^(?!.*Unnamed)')
@@ -167,10 +167,8 @@ def preprocess_type2(df):
     df[['Address', 'Latitude', 'Longitude', 'Some Key']] = df['Address'].str.split('|', expand=True)
     df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
     df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
-
-    print(df.head(3))
     
-    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'IMEI', 'IMSI', 'Latitude', 'Longitude']]
 
 def preprocess_type3(df):
     df = df.rename(columns={
@@ -179,7 +177,9 @@ def preprocess_type3(df):
         'BParty': 'B-Party',
         'Datetime': 'Date & Time',
         'Duration': 'Duration',
-        'SiteLocation': 'Address'
+        'SiteLocation': 'Address',
+        'Imei': 'IMEI',
+        'Imsi': 'IMSI'
     })
     
     df['Call Type'] = df['Call Type'].replace({
@@ -193,7 +193,7 @@ def preprocess_type3(df):
     df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
     df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
     
-    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'IMEI', 'IMSI', 'Latitude', 'Longitude']]
 
 def preprocess_type4(df):
     df = df.rename(columns={
@@ -203,7 +203,9 @@ def preprocess_type4(df):
         'Start Time': 'Date & Time',
         'Location': 'Address',
         'Latitude': 'Latitude',
-        'Longitude': 'Longitude'
+        'Longitude': 'Longitude',
+        'Imei': 'IMEI',
+        'Imsi': 'IMSI'
     })
     
     df['Duration'] = pd.to_datetime(df['End Time']) - pd.to_datetime(df['Date & Time'])
@@ -215,7 +217,7 @@ def preprocess_type4(df):
         'OUTGOING': 'OutGoing',
     })
     
-    return df[['A-Party', 'B-Party', 'Date & Time', 'Call Type', 'Duration', 'Address', 'Latitude', 'Longitude']]
+    return df[['A-Party', 'B-Party', 'Date & Time', 'Call Type', 'Duration', 'Address', 'IMEI', 'IMSI', 'Latitude', 'Longitude']]
 
 def preprocess_type5(df):
     df = df.rename(columns={
@@ -236,7 +238,7 @@ def preprocess_type5(df):
         'Outgoing SMS': 'OutGoing SMS'
     })
     
-    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'Latitude', 'Longitude']]
+    return df[['A-Party', 'B-Party', 'Call Type', 'Date & Time', 'Duration', 'Address', 'IMEI', 'IMSI', 'Latitude', 'Longitude']]
 
 # Main preprocessing function
 
@@ -259,6 +261,7 @@ def preprocess_file(df):
         return preprocess_type4(df)
     elif 'A-Party' in df.columns and 'Call Type' in df.columns:
         print("type5")
+        # 923274520688
         return preprocess_type5(df)
     else:
         print("Unknown file type.")

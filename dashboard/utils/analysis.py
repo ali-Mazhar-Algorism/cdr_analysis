@@ -4,7 +4,20 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
 import altair as alt
-from .constants import day_freq_heading, phase_freq_heading, phase_freq_sub_heading, phase_freq_sub_info, calls_plot_heading, calls_plot_sub_heading, b_analysis_heading, b_analysis_sub_heading, no_data_warning, no_selected_type_warning, no_date_selected
+from .constants import (
+    day_freq_heading,
+    phase_freq_heading,
+    phase_freq_sub_heading,
+    phase_freq_sub_info,
+    calls_plot_heading,
+    calls_plot_sub_heading,
+    b_analysis_heading,
+    b_analysis_sub_heading,
+    no_data_warning,
+    no_selected_type_warning,
+    no_date_selected,
+)
+
 
 def categorize_time(hour):
     """Categorizes the given hour into a time of day."""
@@ -248,10 +261,8 @@ def show_b_party_analysis(data: pd.DataFrame):
     b_party_numbers = data["B-Party"].unique()
     call_types = data["Call Type"].unique()
 
-    selected_b_party = st.multiselect(
-        "Select B-Party Numbers", b_party_numbers
-    )  
-    
+    selected_b_party = st.multiselect("Select B-Party Numbers", b_party_numbers)
+
     selected_call_type = st.multiselect(
         "Select Call Type", call_types, default="OutGoing", key="multiselect_b_party"
     )
@@ -303,9 +314,7 @@ def show_b_party_analysis(data: pd.DataFrame):
 
         combined_chart = (
             alt.layer(bar_chart, line_chart)
-            .resolve_scale(
-                y="independent"
-            )
+            .resolve_scale(y="independent")
             .configure_axis(labelFontSize=12, titleFontSize=14)
             .configure_title(fontSize=16)
             .interactive()
@@ -399,7 +408,16 @@ def display_b_party_analysis(df: pd.DataFrame) -> None:
         st.altair_chart(b_party_stats_chart, use_container_width=True)
 
 
-def display_card(title, value, width="100%", padding="15px", font_size="18px", font_weight="bold", title_font_size="16px", card_color="#26292a"):
+def display_card(
+    title,
+    value,
+    width="100%",
+    padding="15px",
+    font_size="18px",
+    font_weight="bold",
+    title_font_size="16px",
+    card_color="#26292a",
+):
     """Displays a customizable card."""
     st.markdown(
         f"""
@@ -419,6 +437,9 @@ def display_dataset_highlights(df: pd.DataFrame):
     longest incoming and outgoing calls, IMEI and IMSI usage, international and Afghan numbers in B-Party,
     and GSM activity statistics.
     """
+
+    st.dataframe(df)
+
     last_known_location = (
         df["Address"].dropna().iloc[-1] if "Address" in df.columns else "N/A"
     )
@@ -489,18 +510,24 @@ def display_dataset_highlights(df: pd.DataFrame):
     with col1:
         display_card("Unique B-Party Numbers", unique_b_parties)
     with col2:
-        display_card("Longest Incoming Call", f"{longest_incoming_b_party} ({longest_incoming_duration} seconds)")
+        display_card(
+            "Longest Incoming Call",
+            f"{longest_incoming_b_party} ({longest_incoming_duration} seconds)",
+        )
     with col3:
-        display_card("Longest Outgoing Call", f"{longest_outgoing_b_party} ({longest_outgoing_duration} seconds)")
+        display_card(
+            "Longest Outgoing Call",
+            f"{longest_outgoing_b_party} ({longest_outgoing_duration} seconds)",
+        )
 
     st.subheader("IMEI and IMSI Usage")
     imei_used = df["IMEI"].unique().tolist() if "IMEI" in df.columns else ["N/A"]
     imsi_used = df["IMSI"].unique().tolist() if "IMSI" in df.columns else ["N/A"]
     col1, col2 = st.columns(2)
     with col1:
-        display_card("IMEI(s) Used", ', '.join(map(str, imei_used)))
+        display_card("IMEI(s) Used", ", ".join(map(str, imei_used)))
     with col2:
-        display_card("IMSI(s) Used", ', '.join(map(str, imsi_used)))
+        display_card("IMSI(s) Used", ", ".join(map(str, imsi_used)))
 
     st.subheader("International and Afghan Numbers in B-Party")
     international_numbers = (
@@ -515,9 +542,15 @@ def display_dataset_highlights(df: pd.DataFrame):
     )
     col1, col2 = st.columns(2)
     with col1:
-        display_card("International Numbers", ', '.join(map(str, international_numbers)), font_size="16px")
+        display_card(
+            "International Numbers",
+            ", ".join(map(str, international_numbers)),
+            font_size="16px",
+        )
     with col2:
-        display_card("Afghan Numbers", ', '.join(map(str, afg_numbers)), font_size="16px")
+        display_card(
+            "Afghan Numbers", ", ".join(map(str, afg_numbers)), font_size="16px"
+        )
 
     st.subheader("GSM Activity")
     total_gsm_activity = len(df)
@@ -527,7 +560,7 @@ def display_dataset_highlights(df: pd.DataFrame):
     incoming_calls_sms = (
         len(df[df["Call Type"] == "InComing"]) if "Call Type" in df.columns else "N/A"
     )
-    
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -546,13 +579,17 @@ def two_file_comparative_analysis(df1, df2):
     with col1:
         st.header("Dataset 1 Highlights")
         display_dataset_highlights(df1)
+    
+    # Add a divider between the two columns
+    st.markdown("---")  # This creates a horizontal line as a divider
+
     with col2:
         st.header("Dataset 2 Highlights")
         display_dataset_highlights(df2)
 
     # 1. Check if any A-Party in df1 is in B-Party in df2 and vice versa
-    common_a_b_parties = df1[df1['A-Party'].isin(df2['B-Party'])]
-    common_b_a_parties = df2[df2['A-Party'].isin(df1['B-Party'])]
+    common_a_b_parties = df1[df1["A-Party"].isin(df2["B-Party"])]
+    common_b_a_parties = df2[df2["A-Party"].isin(df1["B-Party"])]
 
     st.subheader("Connections between A-Party in one file and B-Party in the other")
     if not common_a_b_parties.empty or not common_b_a_parties.empty:
@@ -561,37 +598,51 @@ def two_file_comparative_analysis(df1, df2):
         st.write("Common A-Party in `df2` found in B-Party of `df1`:")
         st.write(common_b_a_parties)
     else:
-        st.write("No A-Party numbers in one file were found as B-Party numbers in the other.")
+        st.write(
+            "No A-Party numbers in one file were found as B-Party numbers in the other."
+        )
 
     # 2. Find common locations using both 'Location' and 'Latitude'/'Longitude' columns
-    if 'Location' in df1.columns and 'Location' in df2.columns:
-        common_locations_name = pd.merge(df1[['Location']], df2[['Location']], on='Location').drop_duplicates()
+    if "Location" in df1.columns and "Location" in df2.columns:
+        common_locations_name = pd.merge(
+            df1[["Location"]], df2[["Location"]], on="Location"
+        ).drop_duplicates()
         st.subheader("Common Locations by Name")
         if not common_locations_name.empty:
             st.write(common_locations_name)
         else:
             st.write("No common named locations found between the two files.")
 
-    common_locations_coords = pd.merge(df1[['Latitude', 'Longitude']], df2[['Latitude', 'Longitude']], 
-                                       on=['Latitude', 'Longitude']).drop_duplicates()
+
+    common_locations_coords = pd.merge(
+        df1[["Latitude", "Longitude", "Address"]],
+        df2[["Latitude", "Longitude", "Address"]],
+        on=["Latitude", "Longitude"],
+        suffixes=("_df1", "_df2"),
+    ).drop_duplicates()
+
     st.subheader("Common Locations by Coordinates (Latitude, Longitude)")
     if not common_locations_coords.empty:
-        st.write("Common Locations (Latitude, Longitude):")
+        st.write("Common Locations (Latitude, Longitude) with Address:")
         st.write(common_locations_coords)
     else:
         st.write("No common coordinates found between the two files.")
 
     # 3. Find common IMEI and IMSI numbers if columns are available
-    if 'IMEI' in df1.columns and 'IMEI' in df2.columns:
-        common_imei = pd.merge(df1[['IMEI']], df2[['IMEI']], on='IMEI').drop_duplicates()
+    if "IMEI" in df1.columns and "IMEI" in df2.columns:
+        common_imei = pd.merge(
+            df1[["IMEI"]], df2[["IMEI"]], on="IMEI"
+        ).drop_duplicates()
         st.subheader("Common IMEI Numbers")
         if not common_imei.empty:
             st.write(common_imei)
         else:
             st.write("No common IMEI numbers found.")
 
-    if 'IMSI' in df1.columns and 'IMSI' in df2.columns:
-        common_imsi = pd.merge(df1[['IMSI']], df2[['IMSI']], on='IMSI').drop_duplicates()
+    if "IMSI" in df1.columns and "IMSI" in df2.columns:
+        common_imsi = pd.merge(
+            df1[["IMSI"]], df2[["IMSI"]], on="IMSI"
+        ).drop_duplicates()
         st.subheader("Common IMSI Numbers")
         if not common_imsi.empty:
             st.write(common_imsi)
@@ -599,7 +650,9 @@ def two_file_comparative_analysis(df1, df2):
             st.write("No common IMSI numbers found.")
 
     # 4. Find common B-Party numbers between df1 and df2
-    common_b_parties = pd.merge(df1[['B-Party']], df2[['B-Party']], on='B-Party').drop_duplicates()
+    common_b_parties = pd.merge(
+        df1[["B-Party"]], df2[["B-Party"]], on="B-Party"
+    ).drop_duplicates()
 
     st.subheader("Common B-Party Numbers")
     if not common_b_parties.empty:
