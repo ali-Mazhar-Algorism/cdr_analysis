@@ -111,6 +111,7 @@ def parse_site_info(info_string):
 
 def preprocess_type1(df):
     # Extract the A-Party number from the first line
+    df.columns = df.columns.str.upper()  # Convert all column names to uppercase
     a_party_number = df.iloc[0]['MSISDN'] if 'MSISDN' in df.columns else None
     # Rename columns
     df = df.rename(columns={
@@ -243,7 +244,7 @@ def preprocess_type5(df):
 # Main preprocessing function
 
 def preprocess_file(df):
-    if 'CALL_TYPE' in df.columns:
+    if 'CALL_TYPE' or "call_type" in df.columns:
         print("type1")
         # 3134312323_1040470
         return preprocess_type1(df)

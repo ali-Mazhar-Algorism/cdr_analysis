@@ -54,7 +54,7 @@ def display_call_duration_per_day(df: pd.DataFrame) -> None:
 
     call_types = df["Call Type"].unique().tolist()
     selected_call_types = st.multiselect(
-        "Select Call Types", call_types, default="InComing", key="multi_day"
+        "Select Call Types", call_types, default=call_types[0] if call_types else None, key="multi_day"
     )
 
     if not selected_call_types:
@@ -145,7 +145,7 @@ def display_call_frequency_by_phase(df: pd.DataFrame) -> None:
     st.info(phase_freq_sub_info)
 
     selected_call_types = st.multiselect(
-        "Select Call Types", call_types, default="InComing", key="multi_day_phase"
+        "Select Call Types", call_types, default=call_types[0], key="multi_day_phase"
     )
 
     if not selected_call_types:
@@ -264,7 +264,7 @@ def show_b_party_analysis(data: pd.DataFrame):
     selected_b_party = st.multiselect("Select B-Party Numbers", b_party_numbers)
 
     selected_call_type = st.multiselect(
-        "Select Call Type", call_types, default="OutGoing", key="multiselect_b_party"
+        "Select Call Type", call_types, default=call_types[0], key="multiselect_b_party"
     )
 
     if not selected_b_party:
@@ -473,14 +473,14 @@ def display_dataset_highlights(df: pd.DataFrame):
         incoming_calls = df[df["Call Type"] == "InComing"]
         outgoing_calls = df[df["Call Type"] == "OutGoing"]
 
-        longest_incoming_call = incoming_calls.loc[incoming_calls["Duration"].idxmax()]
-        longest_outgoing_call = outgoing_calls.loc[outgoing_calls["Duration"].idxmax()]
+        longest_incoming_call = incoming_calls.loc[incoming_calls["Duration"].idxmax()] if not incoming_calls.empty else None
+        longest_outgoing_call = outgoing_calls.loc[outgoing_calls["Duration"].idxmax()] if not outgoing_calls.empty else None
 
-        longest_incoming_b_party = longest_incoming_call["B-Party"]
-        longest_incoming_duration = longest_incoming_call["Duration"]
+        longest_incoming_b_party = longest_incoming_call["B-Party"] if longest_incoming_call is not None else "N/A"
+        longest_incoming_duration = longest_incoming_call["Duration"] if longest_incoming_call is not None else "N/A"
 
-        longest_outgoing_b_party = longest_outgoing_call["B-Party"]
-        longest_outgoing_duration = longest_outgoing_call["Duration"]
+        longest_outgoing_b_party = longest_outgoing_call["B-Party"] if longest_outgoing_call is not None else "N/A"
+        longest_outgoing_duration = longest_outgoing_call["Duration"] if longest_outgoing_call is not None else "N/A"
     else:
         longest_incoming_b_party, longest_incoming_duration = "N/A", "N/A"
         longest_outgoing_b_party, longest_outgoing_duration = "N/A", "N/A"
