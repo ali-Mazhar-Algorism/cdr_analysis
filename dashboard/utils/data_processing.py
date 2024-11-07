@@ -244,7 +244,7 @@ def preprocess_type5(df):
 # Main preprocessing function
 
 def preprocess_file(df):
-    if 'CALL_TYPE' or "call_type" in df.columns:
+    if 'CALL_TYPE' in df.columns or "call_type" in df.columns:
         print("type1")
         # 3134312323_1040470
         return preprocess_type1(df)
