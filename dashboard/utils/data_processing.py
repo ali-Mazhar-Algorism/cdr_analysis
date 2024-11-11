@@ -140,7 +140,6 @@ COLUMN_MAPPING = {
     "B Number": "B-Party",
     "BParty": "B-Party",
     "STRT_TM": "Date & Time",
-    # "CALL_START_DT_TM": "Date & Time",
     "strt_tm": "Date & Time",
     "Datetime": "Date & Time",
     "Start Time": "Date & Time",
