@@ -6,7 +6,7 @@ import pydeck as pdk
 from utils.constants import *
 
 
-def select_call_types(map_data: pd.DataFrame, default: str, key: str) -> list:
+def select_call_types(map_data: pd.DataFrame, key: str) -> list:
     """
     Displays a multiselect dropdown for users to select call types from the provided map data.
 
@@ -20,7 +20,7 @@ def select_call_types(map_data: pd.DataFrame, default: str, key: str) -> list:
     """
     unique_call_types = map_data["Call Type"].unique().tolist()
     selected_types = st.multiselect(
-        "Select Call Types:", unique_call_types, default=default, key=key
+        "Select Call Types:", unique_call_types, default=unique_call_types[0], key=key
     )
     return selected_types
 
@@ -94,7 +94,13 @@ def assign_colors_by_density(densities):
     Returns:
     - list: A list of colors corresponding to the density values.
     """
+    if densities.empty:
+        return []
+
+    # Proceed if densities are not empty
     max_density, min_density = max(densities), min(densities)
+
+    # If all densities are the same (max_density == min_density), assign a neutral color
     color_range = [
         (
             255 * (density - min_density) / (max_density - min_density)
@@ -103,7 +109,9 @@ def assign_colors_by_density(densities):
         )
         for density in densities
     ]
+    
     return [[int(red), int(255 * (1 - red / 255)), 0, 160] for red in color_range]
+
 
 
 def render_map_with_layer(data: pd.DataFrame, layer: pdk.Layer, tooltip_template: str):
@@ -215,7 +223,7 @@ def show_scatter_map(df: pd.DataFrame) -> None:
     Parameters:
     - df (pd.DataFrame): The DataFrame containing call data.
     """
-    selected_types = select_call_types(df, default="OutGoing", key="scatter_map")
+    selected_types = select_call_types(df, key="scatter_map")
     start_date, end_date = select_date_range(
         df, "scater_map_date_start", "scater_map_date_end"
     )
@@ -270,7 +278,7 @@ def show_density_map(df: pd.DataFrame) -> None:
     Parameters:
     - df (pd.DataFrame): The DataFrame containing call data.
     """
-    selected_types = select_call_types(df, default="OutGoing", key="density_map")
+    selected_types = select_call_types(df, key="density_map")
 
     if not selected_types:
         st.warning(no_selected_type_warning)
@@ -311,7 +319,7 @@ def show_heat_map(df: pd.DataFrame) -> None:
     Parameters:
     - df (pd.DataFrame): The DataFrame containing call data.
     """
-    selected_types = select_call_types(df, default="OutGoing", key="heat_map")
+    selected_types = select_call_types(df, key="heat_map")
 
     if not selected_types:
         st.warning(no_selected_type_warning)
@@ -347,12 +355,6 @@ def show_heat_map(df: pd.DataFrame) -> None:
 
 
 def show_line_tracking_chart(df: pd.DataFrame) -> None:
-    """
-    Displays a line tracking chart for the given dataframe with latitude, longitude, and date-time data.
-
-    Parameters:
-    - df (pd.DataFrame): The DataFrame containing call data.
-    """
     st.markdown(line_tracking_map_guide)
 
     map_data = pd.DataFrame()
@@ -372,28 +374,34 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         st.error("Start date cannot be after end date.")
         return
 
+    # Filter for valid entries in the required columns
     df_filtered = map_data[
-        (map_data["Date & Time"].dt.date >= start_date)
-        & (map_data["Date & Time"].dt.date <= end_date)
+        (map_data["Date & Time"].dt.date >= start_date) &
+        (map_data["Date & Time"].dt.date <= end_date) &
+        map_data["Latitude"].notna() &
+        map_data["Longitude"].notna() &
+        map_data["Date & Time"].notna()
     ]
 
     if df_filtered.empty:
         st.warning("No data available for the selected date range.")
         return
 
-    df_filtered = df_filtered[
-        df_filtered["Latitude"].notna()
-        & df_filtered["Longitude"].notna()
-        & (df_filtered["Latitude"] != float("inf"))
-        & (df_filtered["Longitude"] != float("inf"))
-    ]
-
     df_filtered["start"] = df_filtered[["Longitude", "Latitude"]].shift(1).apply(list, axis=1)
     df_filtered = df_filtered.dropna().iloc[1:]
 
-    df_filtered["date_time_str"] = df_filtered["Date & Time"].dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
+    # Normalize 'Date & Time' for color scaling
+    time_min, time_max = df_filtered["Date & Time"].min(), df_filtered["Date & Time"].max()
+    df_filtered["time_norm"] = (df_filtered["Date & Time"] - time_min) / (time_max - time_min)
+
+    df_filtered["source_color"] = df_filtered["time_norm"].apply(
+        lambda x: [int(255 * x), int(0 * (1 - x)), int(255 * (1 - x)), 160]
     )
+    df_filtered["target_color"] = df_filtered["time_norm"].apply(
+        lambda x: [int(255 * (1 - x)), int(255 * x), int(0 * x), 160]
+    )
+
+    df_filtered["date_time_str"] = df_filtered["Date & Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     scatterplot = pdk.Layer(
         "ScatterplotLayer",
@@ -409,8 +417,8 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         data=df_filtered,
         get_source_position="start",
         get_target_position=["Longitude", "Latitude"],
-        get_source_color=[0, 255, 0, 160],
-        get_target_color=[255, 0, 0, 160],
+        get_source_color="source_color",
+        get_target_color="target_color",
         get_width=4,
         pickable=True,
         auto_highlight=True,
@@ -428,8 +436,8 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         initial_view_state=view_state,
         tooltip={
             "html": "<b>Date & Time:</b> {date_time_str}<br>"
-            "<b>Latitude:</b> {Latitude}<br>"
-            "<b>Longitude:</b> {Longitude}"
+                    "<b>Latitude:</b> {Latitude}<br>"
+                    "<b>Longitude:</b> {Longitude}"
         },
     )
 

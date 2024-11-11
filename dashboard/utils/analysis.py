@@ -199,13 +199,11 @@ def plot_longest_calls(data: pd.DataFrame):
     st.subheader(calls_plot_heading)
     st.write(calls_plot_sub_heading)
 
-    filtered_data = data[data["Call Type"].isin(["InComing", "OutGoing"])]
+    filtered_data = data[data["Call Type"].isin(["InComing", "OutGoing", "VOICE", "CALL"])]
 
     filtered_data = filtered_data[
         filtered_data["B-Party"].apply(lambda x: len(str(x)) >= 9)
     ]
-
-    filtered_data["Duration"] = filtered_data["Duration"]
 
     num_calls = st.slider(
         "Select the number of longest calls to display",
@@ -439,9 +437,15 @@ def display_dataset_highlights(df: pd.DataFrame):
     """
 
     st.dataframe(df)
+    st.download_button(
+        label="Download Dataset as CSV",
+        data=df.to_csv(index=False).encode('utf-8'),
+        file_name='cdr_dataset.csv',
+        mime='text/csv'
+    )
 
     last_known_location = (
-        df["Address"].dropna().iloc[-1] if "Address" in df.columns else "N/A"
+        df["Address"].dropna().iloc[-1] if "Address" in df.columns and not df["Address"].dropna().empty else "N/A"
     )
 
     a_party_number = (
@@ -536,7 +540,7 @@ def display_dataset_highlights(df: pd.DataFrame):
         else "N/A"
     )
     afg_numbers = (
-        df[df["B-Party"].str.startswith("93")]["B-Party"].unique().tolist()
+        df[(df["B-Party"].str.startswith("93")) & (df["B-Party"].str.len() > 8)]["B-Party"].unique().tolist()
         if "B-Party" in df.columns
         else "N/A"
     )
@@ -555,7 +559,7 @@ def display_dataset_highlights(df: pd.DataFrame):
     st.subheader("GSM Activity")
     total_gsm_activity = len(df)
     outgoing_calls_sms = (
-        len(df[df["Call Type"] == "OutGoing"]) if "Call Type" in df.columns else "N/A"
+        len(df[(df["Call Type"] == "OutGoing") | (df["Call Type"] == "VOICE") | (df["Call Type"] == "CALL")]) if "Call Type" in df.columns else "N/A"
     )
     incoming_calls_sms = (
         len(df[df["Call Type"] == "InComing"]) if "Call Type" in df.columns else "N/A"
