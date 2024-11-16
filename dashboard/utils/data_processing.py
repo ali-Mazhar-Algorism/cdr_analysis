@@ -124,6 +124,9 @@ def calculate_duration(df):
 
 # Common column mapping for all data types
 COLUMN_MAPPING = {
+    "INBOUND_OUTBOUND_IND": "Direction",
+    "direction": "Direction",
+    "DIRECTION": "Direction",
     "CALL_TYPE": "Call Type",
     "CallType": "Call Type",
     "Type": "Call Type",
@@ -182,7 +185,7 @@ def seperate_address(df):
 
         # If there are 4 parts, assign them to the respective columns
         if address_split.shape[1] == 4:
-            df[["Address", "Latitude", "Longitude", "_"]] = address_split
+            df[["Address", "Latitude",  "Longitude", "_"]] = address_split
         # If there are 3 parts, assign them to the respective columns
         elif address_split.shape[1] == 3:
             df[["Address", "Latitude", "Longitude"]] = address_split
@@ -199,6 +202,7 @@ def seperate_address(df):
 
 # Standardize Call Type values
 def standardize_call_type(df):
+    # Standardize the "Call Type" column
     df["Call Type"] = df["Call Type"].replace(
         {
             "Call - Incoming": "InComing",
@@ -211,9 +215,32 @@ def standardize_call_type(df):
             "Outgoing SMS": "OutGoing SMS",
             "INCOMING": "InComing",
             "OUTGOING": "OutGoing",
+            "VOICE": "Call",
+            "CALL": "Call",
+            
         }
     )
+
+    # Check if the "Direction" column exists
+    if "Direction" in df.columns:
+        # Standardize the "Direction" column
+        df["Direction"] = df["Direction"].replace(
+            {
+                "INCOMING": "InComing",
+                "OUTGOING": "OutGoing",
+                "DATA": "Data",
+                "SMS": "SMS",
+            }
+        )
+
+        # Merge "Direction" into "Call Type"
+        df["Call Type"] = df.apply(
+            lambda row: f"{row['Call Type']} - {row['Direction']}" if pd.notna(row["Direction"]) else row["Call Type"],
+            axis=1,
+        )
+
     return df
+
 
 
 # Preprocess each type based on specific requirements

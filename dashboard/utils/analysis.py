@@ -199,7 +199,9 @@ def plot_longest_calls(data: pd.DataFrame):
     st.subheader(calls_plot_heading)
     st.write(calls_plot_sub_heading)
 
-    filtered_data = data[data["Call Type"].isin(["InComing", "OutGoing", "VOICE", "CALL"])]
+    filtered_data = data[
+        data["Call Type"].str.contains("InComing|OutGoing", case=False, na=False)
+    ]
 
     filtered_data = filtered_data[
         filtered_data["B-Party"].apply(lambda x: len(str(x)) >= 9)
@@ -474,8 +476,9 @@ def display_dataset_highlights(df: pd.DataFrame):
         and "Duration" in df.columns
         and "B-Party" in df.columns
     ):
-        incoming_calls = df[df["Call Type"] == "InComing"]
-        outgoing_calls = df[df["Call Type"] == "OutGoing"]
+        incoming_calls = df[df["Call Type"].str.contains("InComing", na=False, case=False)]
+        outgoing_calls = df[df["Call Type"].str.contains("OutGoing", na=False, case=False)]
+
 
         longest_incoming_call = incoming_calls.loc[incoming_calls["Duration"].idxmax()] if not incoming_calls.empty else None
         longest_outgoing_call = outgoing_calls.loc[outgoing_calls["Duration"].idxmax()] if not outgoing_calls.empty else None
@@ -559,11 +562,16 @@ def display_dataset_highlights(df: pd.DataFrame):
     st.subheader("GSM Activity")
     total_gsm_activity = len(df)
     outgoing_calls_sms = (
-        len(df[(df["Call Type"] == "OutGoing") | (df["Call Type"] == "VOICE") | (df["Call Type"] == "CALL")]) if "Call Type" in df.columns else "N/A"
+        len(df[df["Call Type"].str.contains("OutGoing", na=False, case=False)])
+        if "Call Type" in df.columns
+        else "N/A"
     )
     incoming_calls_sms = (
-        len(df[df["Call Type"] == "InComing"]) if "Call Type" in df.columns else "N/A"
+        len(df[df["Call Type"].str.contains("InComing", na=False, case=False)])
+        if "Call Type" in df.columns
+        else "N/A"
     )
+
 
     col1, col2, col3 = st.columns(3)
 
