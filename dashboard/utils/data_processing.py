@@ -147,6 +147,8 @@ COLUMN_MAPPING = {
     "Datetime": "Date & Time",
     "Start Time": "Date & Time",
     "Date & Time": "Date & Time",
+    "Date And Time": "Date & Time",
+    "date and time": "Date & Time",
     "MINS": "Minutes",
     "mins": "Minutes",
     "SECS": "Seconds",
@@ -299,7 +301,7 @@ def preprocess_file(df):
     df = seperate_address(df)
     df = standardize_call_type(df)
     df = preprocess_common(df)
-    df = prune_columns(df)
+    # df = prune_columns(df)
     
     required_columns = [
         "A-Party",

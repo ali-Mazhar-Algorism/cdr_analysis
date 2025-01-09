@@ -188,6 +188,7 @@ def prepare_map_data(
     Returns:
     - pd.DataFrame: The filtered DataFrame ready for mapping.
     """
+    data = data[data["Date & Time"].notna()]
     data["Date"], data["Time"] = zip(
         *data["Date & Time"].astype(str).apply(lambda x: x.split(" "))
     )
