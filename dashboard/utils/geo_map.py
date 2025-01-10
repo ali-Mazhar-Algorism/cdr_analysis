@@ -355,7 +355,7 @@ def show_heat_map(df: pd.DataFrame) -> None:
     )
 
 
-def show_line_tracking_chart(df: pd.DataFrame) -> None:
+def show_location_tracking_chart(df: pd.DataFrame) -> None:
     st.markdown(line_tracking_map_guide)
 
     map_data = pd.DataFrame()
@@ -368,7 +368,7 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
     map_data["Address"] = df["Address"].astype(str)
 
     start_date, end_date = select_date_range(
-        map_data, start_key="LineMapDateStart", end_key="LineMapDateEnd", latest_only=True
+        map_data, start_key="LocationMapDateStart", end_key="LocationMapDateEnd", latest_only=True
     )
 
     if start_date > end_date:
@@ -442,4 +442,86 @@ def show_line_tracking_chart(df: pd.DataFrame) -> None:
         },
     )
 
+    st.pydeck_chart(r)
+
+
+def show_time_bound_map(df: pd.DataFrame) -> None:
+    # Filter data based on selected call types
+    unique_call_types = df["Call Type"].unique().tolist()
+    st.info("INFO: Select the call types from the dropdown to display on the map.")
+    selected_types = st.multiselect(
+        "Select Call Types:",
+        unique_call_types,
+        default="OutGoing",
+        key="time_bound_map",
+    )
+    map_data = df[df["Call Type"].isin(selected_types)]
+    map_data["date_time_str"] = map_data["Date & Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Ensure 'Date & Time' column is in datetime format
+    map_data["Date & Time"] = pd.to_datetime(map_data["Date & Time"])
+
+    # Define the minimum and maximum dates in the dataset
+    min_date = map_data["Date & Time"].min()
+    max_date = map_data["Date & Time"].max()
+
+    # Create a time range slider in Streamlit for users to select the time frame
+    st.info(
+        "INFO: Adjust the slider to select the time range for displaying locations."
+    )
+    selected_time_range = st.slider(
+        "Select Date & Time Range:",
+        min_value=min_date.to_pydatetime(),
+        max_value=max_date.to_pydatetime(),
+        value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+        format="YYYY-MM-DD HH:mm:ss",
+    )
+
+    # Filter data based on the selected time range
+    time_filtered_data = map_data[
+        (map_data["Date & Time"] >= pd.to_datetime(selected_time_range[0]))
+        & (map_data["Date & Time"] <= pd.to_datetime(selected_time_range[1]))
+    ]
+
+    # Check if the filtered dataset has any data
+    if time_filtered_data.empty:
+        st.warning("No data available for the selected time range.")
+        return
+
+    # Create a new DataFrame for plotting with necessary columns
+    plot_data = pd.DataFrame()
+    plot_data["lat"] = time_filtered_data["Latitude"].astype(float)
+    plot_data["lon"] = time_filtered_data["Longitude"].astype(float)
+    plot_data["Call Type"] = time_filtered_data["Call Type"].astype(str)
+    plot_data["Date & Time"] = time_filtered_data["Date & Time"]
+
+    # Define the ScatterplotLayer for the time-bound map
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        plot_data,
+        get_position=["lon", "lat"],
+        get_radius=120,  # Adjust the radius if needed
+        get_fill_color=[255, 140, 0, 160],  # Orange color for all points
+        pickable=True,
+    )
+
+    # Set the viewport location based on the filtered data
+    view_state = pdk.ViewState(
+        latitude=plot_data["lat"].median(),
+        longitude=plot_data["lon"].median(),
+        zoom=11,
+        pitch=0,
+    )
+
+    # Render the map
+    r = pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        tooltip={
+            "html": "<b>Call Type:</b> {Call Type}<br>"
+            "<b>Date & Time:</b> {date_time_str}<br>"
+            "<b>Latitude:</b> {lat}<br>"
+            "<b>Longitude:</b> {lon}"
+        },
+    )
     st.pydeck_chart(r)

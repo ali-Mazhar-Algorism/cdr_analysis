@@ -1,8 +1,8 @@
 from typing import Tuple, List
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
-import seaborn as sns
+from geopy.distance import geodesic
+import pydeck as pdk
 import altair as alt
 from .constants import (
     day_freq_heading,
@@ -54,7 +54,10 @@ def display_call_duration_per_day(df: pd.DataFrame) -> None:
 
     call_types = df["Call Type"].unique().tolist()
     selected_call_types = st.multiselect(
-        "Select Call Types", call_types, default=call_types[0] if call_types else None, key="multi_day"
+        "Select Call Types",
+        call_types,
+        default=call_types[0] if call_types else None,
+        key="multi_day",
     )
 
     if not selected_call_types:
@@ -441,13 +444,15 @@ def display_dataset_highlights(df: pd.DataFrame):
     st.dataframe(df)
     st.download_button(
         label="Download Dataset as CSV",
-        data=df.to_csv(index=False).encode('utf-8'),
-        file_name='cdr_dataset.csv',
-        mime='text/csv'
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name="cdr_dataset.csv",
+        mime="text/csv",
     )
 
     last_known_location = (
-        df["Address"].dropna().iloc[-1] if "Address" in df.columns and not df["Address"].dropna().empty else "N/A"
+        df["Address"].dropna().iloc[-1]
+        if "Address" in df.columns and not df["Address"].dropna().empty
+        else "N/A"
     )
 
     a_party_number = (
@@ -476,18 +481,45 @@ def display_dataset_highlights(df: pd.DataFrame):
         and "Duration" in df.columns
         and "B-Party" in df.columns
     ):
-        incoming_calls = df[df["Call Type"].str.contains("InComing", na=False, case=False)]
-        outgoing_calls = df[df["Call Type"].str.contains("OutGoing", na=False, case=False)]
+        incoming_calls = df[
+            df["Call Type"].str.contains("InComing", na=False, case=False)
+        ]
+        outgoing_calls = df[
+            df["Call Type"].str.contains("OutGoing", na=False, case=False)
+        ]
 
+        longest_incoming_call = (
+            incoming_calls.loc[incoming_calls["Duration"].idxmax()]
+            if not incoming_calls.empty
+            else None
+        )
+        longest_outgoing_call = (
+            outgoing_calls.loc[outgoing_calls["Duration"].idxmax()]
+            if not outgoing_calls.empty
+            else None
+        )
 
-        longest_incoming_call = incoming_calls.loc[incoming_calls["Duration"].idxmax()] if not incoming_calls.empty else None
-        longest_outgoing_call = outgoing_calls.loc[outgoing_calls["Duration"].idxmax()] if not outgoing_calls.empty else None
+        longest_incoming_b_party = (
+            longest_incoming_call["B-Party"]
+            if longest_incoming_call is not None
+            else "N/A"
+        )
+        longest_incoming_duration = (
+            longest_incoming_call["Duration"]
+            if longest_incoming_call is not None
+            else "N/A"
+        )
 
-        longest_incoming_b_party = longest_incoming_call["B-Party"] if longest_incoming_call is not None else "N/A"
-        longest_incoming_duration = longest_incoming_call["Duration"] if longest_incoming_call is not None else "N/A"
-
-        longest_outgoing_b_party = longest_outgoing_call["B-Party"] if longest_outgoing_call is not None else "N/A"
-        longest_outgoing_duration = longest_outgoing_call["Duration"] if longest_outgoing_call is not None else "N/A"
+        longest_outgoing_b_party = (
+            longest_outgoing_call["B-Party"]
+            if longest_outgoing_call is not None
+            else "N/A"
+        )
+        longest_outgoing_duration = (
+            longest_outgoing_call["Duration"]
+            if longest_outgoing_call is not None
+            else "N/A"
+        )
     else:
         longest_incoming_b_party, longest_incoming_duration = "N/A", "N/A"
         longest_outgoing_b_party, longest_outgoing_duration = "N/A", "N/A"
@@ -543,7 +575,11 @@ def display_dataset_highlights(df: pd.DataFrame):
         else "N/A"
     )
     afg_numbers = (
-        df[(df["B-Party"].str.startswith("93")) & (df["B-Party"].str.len() > 8)]["B-Party"].unique().tolist()
+        df[(df["B-Party"].str.startswith("93")) & (df["B-Party"].str.len() > 8)][
+            "B-Party"
+        ]
+        .unique()
+        .tolist()
         if "B-Party" in df.columns
         else "N/A"
     )
@@ -572,7 +608,6 @@ def display_dataset_highlights(df: pd.DataFrame):
         else "N/A"
     )
 
-
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -587,17 +622,17 @@ def two_file_comparative_analysis(df1, df2):
     st.title("Two File Comparative Analysis")
 
     # Display highlights for both datasets side by side
-    col1, col2 = st.columns(2)
-    with col1:
-        st.header("Dataset 1 Highlights")
-        display_dataset_highlights(df1)
-    
-    # Add a divider between the two columns
-    st.markdown("---")  # This creates a horizontal line as a divider
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     st.header("Dataset 1 Highlights")
+    #     display_dataset_highlights(df1)
 
-    with col2:
-        st.header("Dataset 2 Highlights")
-        display_dataset_highlights(df2)
+    # # Add a divider between the two columns
+    # st.markdown("---")  # This creates a horizontal line as a divider
+
+    # with col2:
+    #     st.header("Dataset 2 Highlights")
+    #     display_dataset_highlights(df2)
 
     # 1. Check if any A-Party in df1 is in B-Party in df2 and vice versa
     common_a_b_parties = df1[df1["A-Party"].isin(df2["B-Party"])]
@@ -614,37 +649,16 @@ def two_file_comparative_analysis(df1, df2):
             "No A-Party numbers in one file were found as B-Party numbers in the other."
         )
 
-    # 2. Find common locations using both 'Location' and 'Latitude'/'Longitude' columns
-    if "Location" in df1.columns and "Location" in df2.columns:
-        common_locations_name = pd.merge(
-            df1[["Location"]], df2[["Location"]], on="Location"
-        ).drop_duplicates()
-        st.subheader("Common Locations by Name")
-        if not common_locations_name.empty:
-            st.write(common_locations_name)
-        else:
-            st.write("No common named locations found between the two files.")
-
-
-    common_locations_coords = pd.merge(
-        df1[["Latitude", "Longitude", "Address"]],
-        df2[["Latitude", "Longitude", "Address"]],
-        on=["Latitude", "Longitude"],
-        suffixes=("_df1", "_df2"),
-    ).drop_duplicates()
-
-    st.subheader("Common Locations by Coordinates (Latitude, Longitude)")
-    if not common_locations_coords.empty:
-        st.write("Common Locations (Latitude, Longitude) with Address:")
-        st.write(common_locations_coords)
-    else:
-        st.write("No common coordinates found between the two files.")
-
     # 3. Find common IMEI and IMSI numbers if columns are available
     if "IMEI" in df1.columns and "IMEI" in df2.columns:
+        # Ensure both IMEI columns are of the same type
+        df1["IMEI"] = df1["IMEI"].astype(str)
+        df2["IMEI"] = df2["IMEI"].astype(str)
+
         common_imei = pd.merge(
             df1[["IMEI"]], df2[["IMEI"]], on="IMEI"
         ).drop_duplicates()
+
         st.subheader("Common IMEI Numbers")
         if not common_imei.empty:
             st.write(common_imei)
@@ -652,9 +666,15 @@ def two_file_comparative_analysis(df1, df2):
             st.write("No common IMEI numbers found.")
 
     if "IMSI" in df1.columns and "IMSI" in df2.columns:
+        # Ensure both IMSI columns are of the same type
+        df1["IMSI"] = df1["IMSI"].astype(str)
+        df2["IMSI"] = df2["IMSI"].astype(str)
+
+        # Find common IMSI values
         common_imsi = pd.merge(
             df1[["IMSI"]], df2[["IMSI"]], on="IMSI"
         ).drop_duplicates()
+
         st.subheader("Common IMSI Numbers")
         if not common_imsi.empty:
             st.write(common_imsi)
@@ -672,3 +692,110 @@ def two_file_comparative_analysis(df1, df2):
         st.write(common_b_parties)
     else:
         st.write("No common B-Party numbers found between the two files.")
+
+    st.subheader("Closest Coordinates Between Two Files")
+
+    if (
+        "Latitude" in df1.columns
+        and "Longitude" in df1.columns
+        and "Latitude" in df2.columns
+        and "Longitude" in df2.columns
+    ):
+        closest_coordinates = find_closest_coordinates(df1, df2)
+
+        if not closest_coordinates.empty:
+            st.write(closest_coordinates)
+
+            # Import PyDeck for visualization
+
+            # Prepare map data
+            map_data = pd.DataFrame(
+                {
+                    "Latitude": closest_coordinates["df1_Latitude"].tolist()
+                    + closest_coordinates["df2_Latitude"].tolist(),
+                    "Longitude": closest_coordinates["df1_Longitude"].tolist()
+                    + closest_coordinates["df2_Longitude"].tolist(),
+                    "Color": [[255, 0, 0]] * len(closest_coordinates)
+                    + [[0, 0, 255]] * len(closest_coordinates),
+                }
+            )
+            st.markdown(
+                """
+            ### Graph Description:
+            - **Red Dots**: Points from the first dataset (`df1`).
+            - **Blue Dots**: Closest points from the second dataset (`df2`).
+            - Addresses from `df1` are displayed in the data table if available.
+            """
+            )
+            # Adjust dot size and map centering
+            layer = pdk.Layer(
+                "ScatterplotLayer",
+                map_data,
+                get_position=["Longitude", "Latitude"],
+                get_color="Color",
+                get_radius=75, 
+                pickable=True,
+            )
+
+            # Center map dynamically based on the points
+            st.pydeck_chart(
+                pdk.Deck(
+                    initial_view_state=pdk.ViewState(
+                        latitude=map_data["Latitude"].mean(),
+                        longitude=map_data["Longitude"].mean(),
+                        zoom=11,
+                        pitch=50,
+                    ),
+                    layers=[layer],
+                )
+            )
+        else:
+            st.write("No closest coordinates found between the two files.")
+
+
+def find_closest_coordinates(df1, df2):
+    """
+    Find the closest coordinates between two DataFrames.
+
+    Parameters:
+    - df1, df2: DataFrames containing 'Latitude' and 'Longitude' columns.
+
+    Returns:
+    - closest_coordinates: DataFrame with the closest coordinates and distances.
+    """
+    # Drop rows with missing coordinates
+    df1_clean = df1.dropna(subset=["Latitude", "Longitude"])
+    df2_clean = df2.dropna(subset=["Latitude", "Longitude"])
+
+    closest_coordinates = []
+
+    # Iterate over each coordinate pair in df1
+    for _, row1 in df1_clean.iterrows():
+        coord1 = (row1["Latitude"], row1["Longitude"])
+        min_distance = float("inf")
+        closest_coord = None
+
+        # Compare with all coordinate pairs in df2
+        for _, row2 in df2_clean.iterrows():
+            coord2 = (row2["Latitude"], row2["Longitude"])
+            try:
+                distance = geodesic(coord1, coord2).meters  # Distance in meters
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_coord = row2
+            except ValueError as e:
+                print(f"Skipping invalid coordinate pair: {coord1} or {coord2} - {e}")
+
+        if closest_coord is not None:
+            closest_coordinates.append(
+                {
+                    "df1_Latitude": coord1[0],
+                    "df1_Longitude": coord1[1],
+                    "df1_Address": row1.get("Address", "N/A"),  # Include address if available
+                    "df2_Latitude": closest_coord["Latitude"],
+                    "df2_Longitude": closest_coord["Longitude"],
+                    "Distance (meters)": min_distance,
+                }
+            )
+
+    return pd.DataFrame(closest_coordinates)

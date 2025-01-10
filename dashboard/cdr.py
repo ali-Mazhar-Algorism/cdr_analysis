@@ -1,16 +1,15 @@
 import streamlit as st
 import pandas as pd
-from utils.data_helper import load_data, transform_data
+from utils.data_helper import load_data
 from utils.geo_map import (
-    show_line_tracking_chart,
     show_heat_map,
+    show_location_tracking_chart,
     show_scatter_map,
     show_density_map,
+    show_time_bound_map,
 )
 from utils.constants import sections, scatter_map_guide, required_columns
 from utils.analysis import (
-    analyze_b_party,
-    display_b_party_analysis,
     display_dataset_highlights,
     plot_call_frequency_by_time,
     plot_longest_calls,
@@ -65,8 +64,8 @@ if analysis_type == "Single File Analysis":
         st.title("CDR Dashboard: maps")
 
         if required_columns.issubset(dataset.columns):
-            tab1, tab2, tab3, tab4 = st.tabs(
-                ["Geolocation Map", "Density Map", "Heat Map", "Location Tracking"]
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(
+                ["Geolocation Map", "Density Map", "Heat Map", "Location Tracking", "Time Tracking"]
             )
 
             with tab1:
@@ -84,7 +83,11 @@ if analysis_type == "Single File Analysis":
 
             with tab4:
                 st.title("Location Tracking Chart: :round_pushpin:")
-                show_line_tracking_chart(dataset)
+                show_location_tracking_chart(dataset)
+                
+            with tab5:
+                st.title("Time Tracking Map")
+                show_time_bound_map(dataset)
 
         else:
             st.error(
