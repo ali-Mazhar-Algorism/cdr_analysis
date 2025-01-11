@@ -11,6 +11,7 @@ from utils.geo_map import (
 from utils.constants import sections, scatter_map_guide, required_columns
 from utils.analysis import (
     display_dataset_highlights,
+    handle_multi_file_analysis,
     plot_call_frequency_by_time,
     plot_longest_calls,
     show_b_party_analysis,
@@ -23,7 +24,7 @@ st.set_page_config(page_title="CDR Dashboard", layout="wide")
 
 # Sidebar for analysis type selection
 analysis_type = st.sidebar.selectbox(
-    "Select Analysis Type", ["Single File Analysis", "Two File Analysis"]
+    "Select Analysis Type", ["Single File Analysis", "Two File Analysis", "Multi-File Analysis"]
 )
 rerun = None
 if analysis_type == "Single File Analysis":
@@ -137,3 +138,6 @@ elif analysis_type == "Two File Analysis":
 
         # Placeholder for comparison analysis
         two_file_comparative_analysis(df1, df2)
+
+elif analysis_type == "Multi-File Analysis":
+    handle_multi_file_analysis()

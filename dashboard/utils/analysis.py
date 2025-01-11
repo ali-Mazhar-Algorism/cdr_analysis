@@ -1,6 +1,8 @@
 from typing import Tuple, List
 import pandas as pd
 import streamlit as st
+from utils.data_helper import load_data
+from utils.data_processing import find_table_start, preprocess_file
 from geopy.distance import geodesic
 import pydeck as pdk
 import altair as alt
@@ -799,3 +801,195 @@ def find_closest_coordinates(df1, df2):
             )
 
     return pd.DataFrame(closest_coordinates)
+
+
+def create_color_palette(n):
+    """Create distinct colors for each dataset"""
+    base_colors = [
+        [255, 0, 0],    # Red
+        [0, 0, 255],    # Blue
+        [0, 255, 0],    # Green
+        [255, 165, 0],  # Orange
+        [128, 0, 128]   # Purple
+    ]
+    return base_colors[:n]
+
+def multi_file_comparative_analysis(dataframes):
+    """
+    Perform comparative analysis across multiple dataframes
+    """
+    st.title("Multi-File Comparative Analysis")
+    
+    # Analyze common parties across all files
+    for i, df1 in enumerate(dataframes):
+        for j, df2 in enumerate(dataframes[i+1:], start=i+1):
+            st.subheader(f"Analysis between File {i+1} and File {j+1}")
+            
+            # Check A-Party in one file against B-Party in another
+            common_a_b_parties = df1[df1["A-Party"].isin(df2["B-Party"])]
+            common_b_a_parties = df2[df2["A-Party"].isin(df1["B-Party"])]
+            
+            st.write("#### Cross-Party Connections")
+            if not common_a_b_parties.empty or not common_b_a_parties.empty:
+                st.write(f"Common A-Party in File {i+1} found in B-Party of File {j+1}:")
+                st.write(common_a_b_parties)
+                st.write(f"Common A-Party in File {j+1} found in B-Party of File {i+1}:")
+                st.write(common_b_a_parties)
+            else:
+                st.write("No cross-party connections found between these files.")
+
+            # Check for common IMEI/IMSI if available
+            if "IMEI" in df1.columns and "IMEI" in df2.columns:
+                df1["IMEI"] = df1["IMEI"].astype(str)
+                df2["IMEI"] = df2["IMEI"].astype(str)
+                common_imei = pd.merge(df1[["IMEI"]], df2[["IMEI"]], on="IMEI").drop_duplicates()
+                
+                st.write("#### Common IMEI Numbers")
+                if not common_imei.empty:
+                    st.write(common_imei)
+                else:
+                    st.write("No common IMEI numbers found.")
+
+            if "IMSI" in df1.columns and "IMSI" in df2.columns:
+                df1["IMSI"] = df1["IMSI"].astype(str)
+                df2["IMSI"] = df2["IMSI"].astype(str)
+                common_imsi = pd.merge(df1[["IMSI"]], df2[["IMSI"]], on="IMSI").drop_duplicates()
+                
+                st.write("#### Common IMSI Numbers")
+                if not common_imsi.empty:
+                    st.write(common_imsi)
+                else:
+                    st.write("No common IMSI numbers found.")
+
+            # Check for common B-Party numbers
+            common_b_parties = pd.merge(df1[["B-Party"]], df2[["B-Party"]], on="B-Party").drop_duplicates()
+            
+            st.write("#### Common B-Party Numbers")
+            if not common_b_parties.empty:
+                st.write(common_b_parties)
+            else:
+                st.write("No common B-Party numbers found.")
+            
+            st.markdown("---")  # Add separator between file comparisons
+
+    # Create combined map visualization for all files
+    st.subheader("Combined Location Visualization")
+    
+    # Check if all dataframes have coordinate data
+    dfs_with_coords = [df for df in dataframes if "Latitude" in df.columns and "Longitude" in df.columns]
+    
+    if dfs_with_coords:
+        # Get color palette for the number of dataframes
+        colors = create_color_palette(len(dfs_with_coords))
+        
+        # Create legend using Streamlit columns
+        st.write("##### Legend:")
+        cols = st.columns(len(dfs_with_coords))
+        for idx, col in enumerate(cols):
+            color = colors[idx]
+            col.color_picker(
+                f"File {idx + 1}",
+                f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}",
+                disabled=True,
+            )
+        
+        # Prepare combined map data
+        all_points = []
+        for idx, df in enumerate(dfs_with_coords):
+            # Drop rows with missing coordinates
+            df_clean = df.dropna(subset=["Latitude", "Longitude"])
+            
+            if not df_clean.empty:
+                points = pd.DataFrame({
+                    "Latitude": df_clean["Latitude"],
+                    "Longitude": df_clean["Longitude"],
+                    "Color": [colors[idx]] * len(df_clean),
+                    "Source": [f"File {idx + 1}"] * len(df_clean),
+                    "Call_Type": df_clean.get("Call Type", "N/A"),
+                    "Date_Time": df_clean.get("Date/Time", "N/A"),
+                    "A_Party": df_clean.get("A-Party", "N/A"),
+                    "B_Party": df_clean.get("B-Party", "N/A")
+                })
+                all_points.append(points)
+        
+        if all_points:
+            combined_points = pd.concat(all_points, ignore_index=True)
+            
+            # Create PyDeck layer
+            layer = pdk.Layer(
+                "ScatterplotLayer",
+                combined_points,
+                get_position=["Longitude", "Latitude"],
+                get_color="Color",
+                get_radius=75,
+                pickable=True,
+            )
+            
+            # Calculate view state based on all points
+            center_lat = combined_points["Latitude"].mean()
+            center_lon = combined_points["Longitude"].mean()
+            
+            view_state = pdk.ViewState(
+                latitude=center_lat,
+                longitude=center_lon,
+                zoom=11,
+                pitch=50,
+            )
+            
+            # Create and display the map with tooltip
+            r = pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                tooltip={
+                    "html": "<b>Source:</b> {Source}<br/>"
+                           "<b>Call Type:</b> {Call_Type}<br/>"
+                           "<b>Date & Time:</b> {Date_Time}<br/>"
+                           "<b>A-Party:</b> {A_Party}<br/>"
+                           "<b>B-Party:</b> {B_Party}<br/>"
+                           "<b>Latitude:</b> {Latitude}<br/>"
+                           "<b>Longitude:</b> {Longitude}"
+                }
+            )
+            
+            st.pydeck_chart(r)
+        else:
+            st.write("No valid coordinate data found in any of the files.")
+    else:
+        st.write("No coordinate data available in the uploaded files.")
+
+def handle_multi_file_analysis():
+    st.title("Multi-File Analysis")
+    
+    # Reset state button
+    if "file_uploaded" in st.session_state:
+        if st.button("Reset Analysis"):
+            st.session_state.clear()
+            st.rerun()
+    
+    # File count selector
+    file_count = st.slider("Select number of files to analyze", min_value=2, max_value=5, value=2)
+    
+    # Create file uploaders
+    uploaded_files = []
+    for i in range(file_count):
+        uploaded_file = st.file_uploader(f"Choose file {i+1} :file_folder:", key=f"file{i}")
+        if uploaded_file:
+            uploaded_files.append(uploaded_file)
+    
+    # Process files if all are uploaded
+    if len(uploaded_files) == file_count:
+        dataframes = []
+        for file in uploaded_files:
+            df = load_data(file)
+            df = find_table_start(df)
+            df = preprocess_file(df)
+            dataframes.append(df)
+        
+        st.success(f"All {file_count} files uploaded and processed successfully!")
+        
+        # Perform comparative analysis
+        multi_file_comparative_analysis(dataframes)
+        
+        st.session_state["file_uploaded"] = True
+    else:
+        st.info(f"Please upload all {file_count} files to begin analysis.")
