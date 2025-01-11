@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 from utils.data_helper import load_data
 from utils.data_processing import find_table_start, preprocess_file
-from geopy.distance import geodesic
+import numpy as np
 import pydeck as pdk
 import altair as alt
 from .constants import (
@@ -709,6 +709,8 @@ def two_file_comparative_analysis(df1, df2):
             st.write(closest_coordinates)
 
             # Import PyDeck for visualization
+            closest_coordinates["df1_DateTime"] = pd.to_datetime(closest_coordinates["df1_DateTime"], errors='coerce').dt.strftime("%Y-%m-%d %H:%M:%S")
+            closest_coordinates["df12_DateTime"] = pd.to_datetime(closest_coordinates["df2_DateTime"], errors='coerce').dt.strftime("%Y-%m-%d %H:%M:%S")
 
             # Prepare map data
             map_data = pd.DataFrame(
@@ -719,6 +721,10 @@ def two_file_comparative_analysis(df1, df2):
                     + closest_coordinates["df2_Longitude"].tolist(),
                     "Color": [[255, 0, 0]] * len(closest_coordinates)
                     + [[0, 0, 255]] * len(closest_coordinates),
+                    "Address": closest_coordinates["df1_Address"].tolist()
+                    + closest_coordinates["df2_Address"].tolist(),
+                    "DateTime": closest_coordinates["df1_DateTime"].tolist()
+                    + closest_coordinates["df2_DateTime"].tolist(),
                 }
             )
             st.markdown(
@@ -735,11 +741,21 @@ def two_file_comparative_analysis(df1, df2):
                 map_data,
                 get_position=["Longitude", "Latitude"],
                 get_color="Color",
-                get_radius=75, 
+                get_radius=100, 
                 pickable=True,
             )
 
-            # Center map dynamically based on the points
+            tooltip = {
+                "html": """
+                    <b>Latitude:</b> {Latitude}<br>
+                    <b>Longitude:</b> {Longitude}<br>
+                    <b>Address:</b> {Address}<br>
+                    <b>Date & Time:</b> {DateTime}
+                """,
+                "style": {"backgroundColor": "steelblue", "color": "white"},
+            }
+
+            # Center map dynamically based on the points and add the tooltip
             st.pydeck_chart(
                 pdk.Deck(
                     initial_view_state=pdk.ViewState(
@@ -749,6 +765,7 @@ def two_file_comparative_analysis(df1, df2):
                         pitch=50,
                     ),
                     layers=[layer],
+                    tooltip=tooltip,  # Add tooltip to the map
                 )
             )
         else:
@@ -757,13 +774,13 @@ def two_file_comparative_analysis(df1, df2):
 
 def find_closest_coordinates(df1, df2):
     """
-    Find the closest coordinates between two DataFrames.
+    Find the closest coordinates between two DataFrames using an approximate distance calculation.
 
     Parameters:
     - df1, df2: DataFrames containing 'Latitude' and 'Longitude' columns.
 
     Returns:
-    - closest_coordinates: DataFrame with the closest coordinates and distances.
+    - closest_coordinates: DataFrame with the closest coordinates, distances, addresses, and date-time information.
     """
     # Drop rows with missing coordinates
     df1_clean = df1.dropna(subset=["Latitude", "Longitude"])
@@ -771,31 +788,47 @@ def find_closest_coordinates(df1, df2):
 
     closest_coordinates = []
 
+    # Convert degrees to radians for faster calculations
+    df1_clean["Latitude_rad"] = np.radians(df1_clean["Latitude"])
+    df1_clean["Longitude_rad"] = np.radians(df1_clean["Longitude"])
+    df2_clean["Latitude_rad"] = np.radians(df2_clean["Latitude"])
+    df2_clean["Longitude_rad"] = np.radians(df2_clean["Longitude"])
+
     # Iterate over each coordinate pair in df1
     for _, row1 in df1_clean.iterrows():
-        coord1 = (row1["Latitude"], row1["Longitude"])
+        coord1_lat = row1["Latitude_rad"]
+        coord1_lon = row1["Longitude_rad"]
         min_distance = float("inf")
         closest_coord = None
 
         # Compare with all coordinate pairs in df2
         for _, row2 in df2_clean.iterrows():
-            coord2 = (row2["Latitude"], row2["Longitude"])
-            try:
-                distance = geodesic(coord1, coord2).meters  # Distance in meters
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_coord = row2
-            except ValueError as e:
-                print(f"Skipping invalid coordinate pair: {coord1} or {coord2} - {e}")
+            coord2_lat = row2["Latitude_rad"]
+            coord2_lon = row2["Longitude_rad"]
+            
+            # Approximate distance (Euclidean distance in radians)
+            delta_lat = coord1_lat - coord2_lat
+            delta_lon = coord1_lon - coord2_lon
+            distance = np.sqrt(delta_lat**2 + delta_lon**2)  # Approximation in radians
+
+            # Convert radians to meters (1 rad ≈ 6,371,000 meters on Earth's surface)
+            distance_meters = distance * 6371000
+
+            if distance_meters < min_distance:
+                min_distance = distance_meters
+                closest_coord = row2
 
         if closest_coord is not None:
             closest_coordinates.append(
                 {
-                    "df1_Latitude": coord1[0],
-                    "df1_Longitude": coord1[1],
+                    "df1_Latitude": row1["Latitude"],
+                    "df1_Longitude": row1["Longitude"],
                     "df1_Address": row1.get("Address", "N/A"),  # Include address if available
+                    "df2_Address": row2.get("Address", "N/A"),  # Include address if available
+                    "df1_DateTime": row1.get("Date & Time", "N/A"),  # Include datetime if available
                     "df2_Latitude": closest_coord["Latitude"],
                     "df2_Longitude": closest_coord["Longitude"],
+                    "df2_DateTime": closest_coord.get("Date & Time", "N/A"),  # Include datetime if available
                     "Distance (meters)": min_distance,
                 }
             )
@@ -877,7 +910,7 @@ def multi_file_comparative_analysis(dataframes):
     
     # Check if all dataframes have coordinate data
     dfs_with_coords = [df for df in dataframes if "Latitude" in df.columns and "Longitude" in df.columns]
-    
+
     if dfs_with_coords:
         # Get color palette for the number of dataframes
         colors = create_color_palette(len(dfs_with_coords))
@@ -898,7 +931,8 @@ def multi_file_comparative_analysis(dataframes):
         for idx, df in enumerate(dfs_with_coords):
             # Drop rows with missing coordinates
             df_clean = df.dropna(subset=["Latitude", "Longitude"])
-            
+            df_clean["date_time_str"] = pd.to_datetime(df_clean["Date & Time"], errors="coerce").dt.strftime("%Y-%m-%d %H:%M:%S")
+            df_clean["date_time_obj"] = pd.to_datetime(df_clean["Date & Time"], errors="coerce")
             if not df_clean.empty:
                 points = pd.DataFrame({
                     "Latitude": df_clean["Latitude"],
@@ -906,7 +940,8 @@ def multi_file_comparative_analysis(dataframes):
                     "Color": [colors[idx]] * len(df_clean),
                     "Source": [f"File {idx + 1}"] * len(df_clean),
                     "Call_Type": df_clean.get("Call Type", "N/A"),
-                    "Date_Time": df_clean.get("Date/Time", "N/A"),
+                    "Date_Time": df_clean.get("date_time_str", "N/A"),
+                    "DateTimeObj": df_clean.get("date_time_obj", pd.NaT),
                     "A_Party": df_clean.get("A-Party", "N/A"),
                     "B_Party": df_clean.get("B-Party", "N/A")
                 })
@@ -915,45 +950,71 @@ def multi_file_comparative_analysis(dataframes):
         if all_points:
             combined_points = pd.concat(all_points, ignore_index=True)
             
-            # Create PyDeck layer
-            layer = pdk.Layer(
-                "ScatterplotLayer",
-                combined_points,
-                get_position=["Longitude", "Latitude"],
-                get_color="Color",
-                get_radius=75,
-                pickable=True,
-            )
+            # Set up time slider
+            st.info("INFO: Adjust the slider to select the time range for displaying locations.")
+            min_date = combined_points["DateTimeObj"].min()
+            max_date = combined_points["DateTimeObj"].max()
             
-            # Calculate view state based on all points
-            center_lat = combined_points["Latitude"].mean()
-            center_lon = combined_points["Longitude"].mean()
-            
-            view_state = pdk.ViewState(
-                latitude=center_lat,
-                longitude=center_lon,
-                zoom=11,
-                pitch=50,
-            )
-            
-            # Create and display the map with tooltip
-            r = pdk.Deck(
-                layers=[layer],
-                initial_view_state=view_state,
-                tooltip={
-                    "html": "<b>Source:</b> {Source}<br/>"
-                           "<b>Call Type:</b> {Call_Type}<br/>"
-                           "<b>Date & Time:</b> {Date_Time}<br/>"
-                           "<b>A-Party:</b> {A_Party}<br/>"
-                           "<b>B-Party:</b> {B_Party}<br/>"
-                           "<b>Latitude:</b> {Latitude}<br/>"
-                           "<b>Longitude:</b> {Longitude}"
-                }
-            )
-            
-            st.pydeck_chart(r)
+            if pd.isnull(min_date) or pd.isnull(max_date):
+                st.warning("No valid Date & Time data available for filtering.")
+            else:
+                selected_time_range = st.slider(
+                    "Select Date & Time Range:",
+                    min_value=min_date.to_pydatetime(),
+                    max_value=max_date.to_pydatetime(),
+                    value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+                    format="YYYY-MM-DD HH:mm:ss",
+                )
+                
+                # Filter data based on the selected time range
+                time_filtered_data = combined_points[
+                    (combined_points["DateTimeObj"] >= pd.to_datetime(selected_time_range[0]))
+                    & (combined_points["DateTimeObj"] <= pd.to_datetime(selected_time_range[1]))
+                ]
+                
+                if time_filtered_data.empty:
+                    st.write("No data available for the selected time range.")
+                else:
+                    # Create PyDeck layer
+                    layer = pdk.Layer(
+                        "ScatterplotLayer",
+                        time_filtered_data,
+                        get_position=["Longitude", "Latitude"],
+                        get_color="Color",
+                        get_radius=75,
+                        pickable=True,
+                    )
+                    
+                    # Calculate view state based on filtered points
+                    center_lat = time_filtered_data["Latitude"].mean()
+                    center_lon = time_filtered_data["Longitude"].mean()
+                    
+                    view_state = pdk.ViewState(
+                        latitude=center_lat,
+                        longitude=center_lon,
+                        zoom=11,
+                        pitch=50,
+                    )
+                    
+                    # Create and display the map with tooltip
+                    r = pdk.Deck(
+                        layers=[layer],
+                        initial_view_state=view_state,
+                        tooltip={
+                            "html": "<b>Source:</b> {Source}<br/>"
+                                "<b>Call Type:</b> {Call_Type}<br/>"
+                                "<b>Date & Time:</b> {Date_Time}<br/>"
+                                "<b>A-Party:</b> {A_Party}<br/>"
+                                "<b>B-Party:</b> {B_Party}<br/>"
+                                "<b>Latitude:</b> {Latitude}<br/>"
+                                "<b>Longitude:</b> {Longitude}"
+                        }
+                    )
+                    
+                    st.pydeck_chart(r)
         else:
             st.write("No valid coordinate data found in any of the files.")
+
     else:
         st.write("No coordinate data available in the uploaded files.")
 
@@ -967,7 +1028,7 @@ def handle_multi_file_analysis():
             st.rerun()
     
     # File count selector
-    file_count = st.slider("Select number of files to analyze", min_value=2, max_value=5, value=2)
+    file_count = st.slider("Select number of files to analyze", min_value=2, max_value=10, value=2)
     
     # Create file uploaders
     uploaded_files = []
@@ -993,3 +1054,64 @@ def handle_multi_file_analysis():
         st.session_state["file_uploaded"] = True
     else:
         st.info(f"Please upload all {file_count} files to begin analysis.")
+        
+        
+# def find_closest_points_multi(dataframes):
+#     """
+#     Find closest points between multiple dataframes.
+#     Returns a DataFrame with closest points and their details for each pair of files.
+#     """
+#     results = []
+    
+#     # Convert coordinates to radians for all dataframes
+#     dfs_rad = []
+#     for idx, df in enumerate(dataframes):
+#         df_clean = df.dropna(subset=["Latitude", "Longitude"])
+#         df_clean["Latitude_rad"] = np.radians(df_clean["Latitude"])
+#         df_clean["Longitude_rad"] = np.radians(df_clean["Longitude"])
+#         dfs_rad.append(df_clean)
+    
+#     # Compare each pair of dataframes
+#     for i, df1 in enumerate(dfs_rad):
+#         for j, df2 in enumerate(dfs_rad[i+1:], start=i+1):
+#             closest_points = []
+            
+#             # Find closest points
+#             for _, row1 in df1.iterrows():
+#                 coord1_lat = row1["Latitude_rad"]
+#                 coord1_lon = row1["Longitude_rad"]
+#                 min_distance = float("inf")
+#                 closest_coord = None
+                
+#                 for _, row2 in df2.iterrows():
+#                     coord2_lat = row2["Latitude_rad"]
+#                     coord2_lon = row2["Longitude_rad"]
+                    
+#                     # Approximate distance calculation
+#                     delta_lat = coord1_lat - coord2_lat
+#                     delta_lon = coord1_lon - coord2_lon
+#                     distance = np.sqrt(delta_lat**2 + delta_lon**2)
+#                     distance_meters = distance * 6371000  # Convert to meters
+                    
+#                     if distance_meters < min_distance:
+#                         min_distance = distance_meters
+#                         closest_coord = row2
+                
+#                 if closest_coord is not None and min_distance <= 1000:  # Only include points within 1km
+#                     closest_points.append({
+#                         "File_Pair": f"File {i+1} - File {j+1}",
+#                         "Point1_Latitude": row1["Latitude"],
+#                         "Point1_Longitude": row1["Longitude"],
+#                         "Point1_DateTime": row1.get("Date/Time", "N/A"),
+#                         "Point1_Address": row1.get("Address", "N/A"),
+#                         "Point2_Latitude": closest_coord["Latitude"],
+#                         "Point2_Longitude": closest_coord["Longitude"],
+#                         "Point2_DateTime": closest_coord.get("Date/Time", "N/A"),
+#                         "Point2_Address": closest_coord.get("Address", "N/A"),
+#                         "Distance_Meters": min_distance
+#                     })
+            
+#             if closest_points:
+#                 results.extend(closest_points)
+    
+#     return pd.DataFrame(results) if results else pd.DataFrame()
